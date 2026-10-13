@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2D53B5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Finances">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>Mes Finances</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: banking-app shell — royal-blue header with balance and round quick actions, light rounded panel of soft cards, bottom tab bar with a raised centre + */
+:root{
+  --brand:#2D53B5; --brand-2:#1C3C93; --brand-soft:#E6ECFA; --on-brand:#FFFFFF;
+  --bg:#F1F4FA; --surface:#FFFFFF; --sunk:#EAEEF6; --ink:#18213D; --muted:#7C86A2; --line:#E3E8F2;
+  --good:#1F9D67; --good-soft:#DDF3E8; --bad:#E0484E; --bad-soft:#FBE3E4; --warn:#D98A1C; --warn-soft:#FBEED8;
+  --gold:#B8861F; --gold-soft:#F6EBD2;
+  --c1:#2D53B5; --c2:#D98A1C; --c3:#1F9D67; --c4:#E0484E; --c5:#7B5CC9; --c6:#1C9BB0; --c7:#C2508E; --c8:#6F8A2C; --c9:#8C93A8;
+  --shadow:0 6px 18px rgb(30 52 120 / .07);
+  --font:"Plus Jakarta Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --brand:#4E78E0; --brand-2:#2A4AA6; --brand-soft:#1C2847; --on-brand:#FFFFFF;
+  --bg:#0C1120; --surface:#151C30; --sunk:#1D263D; --ink:#E9EDF7; --muted:#8E98B5; --line:#252F48;
+  --good:#4CC98F; --good-soft:#123528; --bad:#F27A7E; --bad-soft:#3A1B1F; --warn:#F2AC4B; --warn-soft:#3A2B12;
+  --gold:#E2B656; --gold-soft:#372C15;
+  --c1:#6F95F0; --c2:#F2AC4B; --c3:#4CC98F; --c4:#F27A7E; --c5:#A98CF0; --c6:#4FC3D4; --c7:#E68CBF; --c8:#B0C766; --c9:#9AA2B8;
+  --shadow:0 6px 18px rgb(0 0 0 / .25); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --brand:#4E78E0; --brand-2:#2A4AA6; --brand-soft:#1C2847; --on-brand:#FFFFFF;
+  --bg:#0C1120; --surface:#151C30; --sunk:#1D263D; --ink:#E9EDF7; --muted:#8E98B5; --line:#252F48;
+  --good:#4CC98F; --good-soft:#123528; --bad:#F27A7E; --bad-soft:#3A1B1F; --warn:#F2AC4B; --warn-soft:#3A2B12;
+  --gold:#E2B656; --gold-soft:#372C15;
+  --c1:#6F95F0; --c2:#F2AC4B; --c3:#4CC98F; --c4:#F27A7E; --c5:#A98CF0; --c6:#4FC3D4; --c7:#E68CBF; --c8:#B0C766; --c9:#9AA2B8;
+  --shadow:0 6px 18px rgb(0 0 0 / .25); color-scheme:dark}
+
+html{-webkit-text-size-adjust:100%}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.shell{max-width:560px;margin:0 auto;min-height:100vh;position:relative}
+
+/* Header */
+.hero{background:linear-gradient(160deg,var(--brand) 0%,var(--brand-2) 100%);color:var(--on-brand);padding:calc(14px + env(safe-area-inset-top,0px)) 18px 44px;display:flex;flex-direction:column;gap:16px}
+.hrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.segw{display:flex;background:rgb(255 255 255 / .14);border-radius:12px;padding:3px;gap:2px}
+.segw button{border:0;background:transparent;color:rgb(255 255 255 / .8);padding:7px 12px;border-radius:9px;font-weight:700;font-size:13px}
+.segw button[aria-pressed="true"]{background:#fff;color:var(--brand-2)}
+.hicons{display:flex;gap:10px;align-items:center}
+.iconbtn{position:relative;border:0;background:rgb(255 255 255 / .14);color:#fff;width:40px;height:40px;border-radius:12px;display:grid;place-items:center}
+.badge{position:absolute;top:6px;right:7px;min-width:16px;height:16px;border-radius:99px;background:#FF6B6B;color:#fff;font-size:10px;font-weight:800;display:grid;place-items:center;padding:0 4px}
+.avatar{border-radius:14px;object-fit:cover;display:grid;place-items:center;font-weight:800;color:#fff;flex:none;overflow:hidden}
+.hero .avatar{width:42px;height:42px;border:2px solid rgb(255 255 255 / .6)}
+.mnav{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px;color:rgb(255 255 255 / .85)}
+.mnav button{border:0;background:none;color:inherit;padding:4px 6px;font-size:18px;line-height:1}
+.mnav span{text-transform:capitalize}
+.bal{font-weight:800;font-size:clamp(32px,10vw,40px);letter-spacing:-.02em;line-height:1.05}
+.bal small{font-size:.42em;font-weight:600;opacity:.85;margin-left:6px}
+.ballbl{font-size:13px;color:rgb(255 255 255 / .78);margin-top:4px}
+.syncchip{border:0;background:rgb(255 255 255 / .14);color:#fff;border-radius:99px;padding:5px 11px 5px 9px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:7px;margin-top:10px;max-width:100%}
+.syncchip i{width:8px;height:8px;border-radius:50%;background:#9AA6C4;flex:none}
+.syncchip.ok i{background:#5BE0A0} .syncchip.wait i{background:#FFC25C} .syncchip.err i{background:#FF8A8A}
+.syncline{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600}
+.syncline i{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.syncline.ok i{background:var(--good)} .syncline.wait i{background:var(--warn)} .syncline.err i{background:var(--bad)}
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.quick button{border:0;background:none;color:#fff;display:flex;flex-direction:column;align-items:center;gap:7px;font-size:12.5px;font-weight:600}
+.quick span.q{width:54px;height:54px;border-radius:16px;background:#fff;color:var(--brand);display:grid;place-items:center;box-shadow:0 6px 14px rgb(0 0 0 / .12)}
+.quick svg.i{width:24px;height:24px}
+.subhero{padding-bottom:40px;gap:10px}
+.subhero h1{margin:0;font-size:21px;font-weight:800;letter-spacing:-.01em;text-wrap:balance}
+.subhero p{margin:0;font-size:13.5px;color:rgb(255 255 255 / .8)}
+.panel{background:var(--bg);border-radius:26px 26px 0 0;margin-top:-26px;position:relative;padding:18px 16px calc(110px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:16px}
+
+/* Cards and lists */
+.card{background:var(--surface);border-radius:18px;padding:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px;min-width:0}
+.card.flat{box-shadow:none;border:1px solid var(--line)}
+.ch{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ch h2,.sec{margin:0;font-size:16.5px;font-weight:800;letter-spacing:-.01em}
+.link{border:0;background:none;color:var(--brand);font-weight:700;font-size:13.5px;padding:4px 0}
+.muted{color:var(--muted)} .small{font-size:12.5px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 13px;font-size:13px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.chip i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.chip[aria-pressed="true"]{background:var(--brand-soft);color:var(--brand);border-color:transparent}
+.grp{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:2px 2px -4px}
+.list{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:11px 0;border-top:1px solid var(--line);text-align:left;background:none;border-left:0;border-right:0;border-bottom:0;width:100%}
+.list > .row:first-child{border-top:0;padding-top:2px}
+.ico{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:var(--sunk)}
+.row .t{min-width:0}
+.row .t b{display:block;font-weight:700;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .t .bar{display:block}
+.row .t span{display:block;font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .a{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-weight:700;font-size:14.5px}
+.row .a span{font-size:12px;color:var(--muted);font-weight:500}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+.pill{font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;white-space:nowrap;display:inline-block}
+.pill.ok{background:var(--good-soft);color:var(--good)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.info{background:var(--brand-soft);color:var(--brand)} .pill.gold{background:var(--gold-soft);color:var(--gold)}
+.bar{height:8px;background:var(--sunk);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand);border-radius:99px}
+.bar.good i{background:var(--good)} .bar.warn i{background:var(--warn)} .bar.bad i{background:var(--bad)} .bar.gold i{background:var(--gold)}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kv div{background:var(--sunk);border-radius:13px;padding:10px 12px;min-width:0}
+.kv span{display:block;font-size:12px;color:var(--muted);font-weight:600}
+.kv b{display:block;font-size:16px;font-weight:800;overflow:hidden;text-overflow:ellipsis}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{border:0;background:var(--surface);border-radius:18px;padding:14px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px;text-align:left;min-width:0}
+.tile .ico{width:42px;height:42px;background:var(--brand-soft);color:var(--brand)}
+.tile b{font-size:14.5px} .tile span{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:0;border-radius:13px;padding:11px 15px;font-weight:700;font-size:14px;background:var(--brand);color:var(--on-brand);display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.btn svg.i{width:18px;height:18px}
+.btn.soft{background:var(--brand-soft);color:var(--brand)}
+.btn.ghost{background:var(--sunk);color:var(--ink)}
+.btn.danger{background:var(--bad-soft);color:var(--bad)}
+.btn.wa{background:#1FAF5A;color:#fff}
+.btn.wide{width:100%;padding:14px}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.empty{text-align:center;color:var(--muted);padding:22px 10px;font-size:14px}
+.banner{background:var(--gold-soft);border-radius:16px;padding:12px 14px;font-size:13.5px}
+.banner b{color:var(--gold)}
+.alert{display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line);background:none;border-left:0;border-right:0;border-bottom:0;text-align:left;width:100%}
+.alert:first-of-type{border-top:0;padding-top:0}
+.alert .ico{width:38px;height:38px;border-radius:11px}
+.alert b{font-size:14px;display:block} .alert span{font-size:12.5px;color:var(--muted);display:block}
+
+/* Bank cards */
+.cards{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 2px 10px;margin:0 -2px}
+.bcard{flex:0 0 min(82%,320px);scroll-snap-align:start;border:0;text-align:left;color:#fff;border-radius:20px;padding:18px;min-height:176px;display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(120% 120% at 100% 0%,#3C66CF 0%,#1B347F 55%,#13275E 100%);box-shadow:0 12px 24px rgb(20 40 110 / .28);position:relative;overflow:hidden}
+.bcard[aria-pressed="false"]{opacity:.6}
+.bcard .bk{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:15px}
+.bcard .no{font-size:17px;letter-spacing:.14em;font-weight:700}
+.bcard .ft{display:flex;justify-content:space-between;gap:10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;opacity:.75}
+.bcard .ft b{display:block;font-size:14px;letter-spacing:0;text-transform:none;opacity:1;margin-top:2px}
+.bcard.add{background:var(--surface);color:var(--muted);border:2px dashed var(--line);box-shadow:none;align-items:center;justify-content:center;gap:8px;font-weight:700}
+
+/* Charts */
+.donutwrap{display:grid;grid-template-columns:130px 1fr;gap:14px;align-items:center}
+@media (max-width:370px){.donutwrap{grid-template-columns:1fr;justify-items:center}}
+.legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;width:100%;min-width:0}
+.legend li{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:center;font-size:13px}
+.legend li span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+.chart svg{width:100%;height:auto;display:block}
+.chart text{fill:var(--muted);font-size:11px;font-family:var(--font)}
+.tablewrap{overflow-x:auto;margin:0 -4px}
+table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:420px}
+th,td{padding:8px 6px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:700;border-top:0;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+th:first-child,td:first-child{text-align:left}
+tr.paid td{color:var(--muted)}
+
+/* Bottom nav */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--surface);box-shadow:0 -4px 18px rgb(20 40 100 / .07);padding:6px 6px calc(8px + env(safe-area-inset-bottom,0px))}
+nav.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);align-items:end}
+nav.tabs button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--muted);padding:6px 0}
+nav.tabs button[aria-current="page"]{color:var(--brand)}
+nav.tabs .plus span{width:52px;height:52px;border-radius:17px;background:var(--brand);color:#fff;display:grid;place-items:center;margin-top:-26px;box-shadow:0 8px 18px rgb(45 83 181 / .4)}
+
+/* Sheets */
+.scrim{position:fixed;inset:0;background:rgb(10 16 35 / .5);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--surface);width:100%;max-width:560px;border-radius:24px 24px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;max-height:92vh;overflow-y:auto}
+.sheet h3{margin:0;font-size:19px;font-weight:800}
+.grab{width:42px;height:5px;border-radius:9px;background:var(--line);align-self:center;margin-top:-6px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field > label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.field input,.field select{border:1px solid var(--line);background:var(--bg);border-radius:13px;padding:12px;font-size:16px;width:100%;min-width:0}
+.field input.amount{font-size:24px;font-weight:800}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.segf{display:flex;gap:8px;flex-wrap:wrap}
+.segf button{flex:1;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 8px;font-weight:700;font-size:14px;min-width:0}
+.segf button[aria-pressed="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
+.err{color:var(--bad);font-size:13px;margin:0}
+.menu{display:flex;flex-direction:column;gap:6px}
+.menu button{display:grid;grid-template-columns:42px 1fr;gap:12px;align-items:center;border:0;background:var(--bg);border-radius:14px;padding:10px 12px;text-align:left}
+.menu .ico{width:42px;height:42px;background:var(--brand-soft);color:var(--brand)}
+.menu b{display:block;font-size:14.5px} .menu span{font-size:12.5px;color:var(--muted)}
+.pick{display:flex;flex-direction:column;gap:2px;max-height:50vh;overflow-y:auto}
+.pick label{display:grid;grid-template-columns:22px 36px 1fr;gap:10px;align-items:center;padding:8px 4px;border-top:1px solid var(--line)}
+.pick label .avatar{width:36px;height:36px;border-radius:11px;font-size:13px}
+.pick input{width:18px;height:18px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:11px 16px;border-radius:13px;font-size:14px;z-index:40;max-width:calc(100% - 32px);text-align:center}
+.lock{position:fixed;inset:0;z-index:50;background:linear-gradient(160deg,var(--brand),var(--brand-2));color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px}
+.lock .avatar{width:76px;height:76px;border-radius:24px;font-size:26px;border:3px solid rgb(255 255 255 / .6)}
+.pins{display:flex;gap:14px}.pins i{width:14px;height:14px;border-radius:50%;border:2px solid #fff;display:block}.pins i.f{background:#fff}
+.pad{display:grid;grid-template-columns:repeat(3,72px);gap:14px}
+.pad button{height:72px;border-radius:50%;border:0;background:rgb(255 255 255 / .14);color:#fff;font-size:24px;font-weight:700}
+.profilehead{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center}
+.profilehead .avatar{width:96px;height:96px;border-radius:30px;font-size:34px;border:4px solid var(--surface);box-shadow:var(--shadow)}
+.toggle{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.toggle:first-of-type{border-top:0}
+.toggle b{display:block;font-size:14.5px} .toggle span{font-size:12.5px;color:var(--muted)}
+.sw{appearance:none;-webkit-appearance:none;width:46px;height:28px;border-radius:99px;background:var(--line);position:relative;flex:none;cursor:pointer;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgb(0 0 0 / .2)}
+.sw:checked{background:var(--good)} .sw:checked::after{left:21px}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
+@media (prefers-reduced-motion:reduce){.sw,.sw::after{transition:none}}
+</style>
+</head>
+<body>
+<div class="shell" id="app"></div>
+<div id="sheetRoot"></div>
+<div id="lockRoot"></div>
+
+<script>
+(function(){
+"use strict";
+/* ================= Constants ================= */
+const CATS = {
+  perso:{
+    out:[["alim","Alimentation"],["transport","Transport"],["logement","Logement"],["factures","Eau, électricité, internet"],["sante","Santé"],["famille","Famille"],["dime","Dîme"],["dons","Offrandes & dons"],["pret","Remboursement prêt"],["loisirs","Loisirs"],["autres","Autres dépenses"]],
+    in:[["salaire","Salaire"],["prestations","Prestations"],["dons_recus","Dons reçus"],["remb_recu","Remboursement reçu"],["autres_in","Autres revenus"]]
+  },
+  pro:{
+    out:[["materiel","Matériel"],["transport","Transport"],["com","Internet & téléphone"],["prestataires","Prestataires"],["location","Location matériel/salle"],["marketing","Marketing"],["taxes","Impôts & taxes"],["autres","Autres dépenses"]],
+    in:[["photo","Photographie"],["video","Vidéo & audiovisuel"],["event","Événementiel"],["autres_in","Autres revenus"]]
+  }
+};
+const CAT_ICON = {alim:"cart",transport:"car",logement:"home",factures:"bolt",sante:"heart",famille:"users",dime:"church",dons:"church",pret:"bank",loisirs:"film",autres:"wallet",
+  salaire:"wallet",prestations:"camera",dons_recus:"heart",remb_recu:"down",autres_in:"wallet",
+  materiel:"tool",com:"phone",prestataires:"users",location:"calendar",marketing:"mega",taxes:"bank",photo:"camera",video:"video",event:"calendar"};
+const METHODS = ["Espèces","T-Money","Flooz","Banque","Carte"];
+const SPACE_NAME = {perso:"Personnel", pro:"Lambano Production"};
+const P = {
+  wallet:"M3 7h15a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM3 7l12-4v4M16 13.5h2",
+  up:"M12 19V5M6 11l6-6 6 6", down:"M12 5v14M6 13l6 6 6-6",
+  church:"M12 2v5M10 4h4M5 21V11l7-4 7 4v10M9 21v-5a3 3 0 0 1 6 0v5",
+  bank:"M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18",
+  home:"M3 11l9-7 9 7M5 9.5V20h14V9.5", book:"M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11M9 8h6",
+  contract:"M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h4", grid:"M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z",
+  plus:"M12 5v14M5 12h14", bell:"M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4", back:"M15 5l-7 7 7 7", chev:"M9 6l6 6-6 6",
+  user:"M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0",
+  users:"M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14a6 6 0 0 1 3.5 6",
+  chart:"M4 20V10M10 20V4M16 20v-7M22 20H2", target:"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+  piggy:"M5 11a7 6 0 0 1 14 0v3a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3zM9 20v-3M15 20v-3M12 5V3",
+  loan:"M5 19L19 5M7 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z",
+  settings:"M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M14 4v4M8 10v4M16 16v4",
+  cart:"M3 4h2l2.5 11h10L20 8H6.5M9 20h.01M17 20h.01", car:"M5 16v-5l2-5h10l2 5v5M3 16h18M7 19v-3M17 19v-3M7.5 13h1M15.5 13h1",
+  bolt:"M13 3L5 14h6l-1 7 8-11h-6z", heart:"M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z",
+  film:"M4 5h16v14H4zM8 5v14M16 5v14M4 9h4M4 15h4M16 9h4M16 15h4", camera:"M4 8h3l2-3h6l2 3h3v11H4zM12 17a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z",
+  video:"M3 7h12v10H3zM15 11l6-3v8l-6-3", calendar:"M4 6h16v15H4zM4 10h16M8 3v5M16 3v5",
+  tool:"M14.5 5.5a4 4 0 0 0 4.5 4.5l-9 9-3.5-3.5 9-9a4 4 0 0 1-1-1z", mega:"M4 10v4h3l8 5V5l-8 5zM18 9a4 4 0 0 1 0 6",
+  phone:"M8 3h8v18H8zM11 18h2", chat:"M4 20l1.5-4A8 8 0 1 1 9 19z", trash:"M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13",
+  edit:"M4 20h4L19 9l-4-4L4 16zM13 7l4 4", check:"M5 12l5 5 9-10", lock:"M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3",
+  swap:"M7 7h12l-3-3M17 17H5l3 3", google:"M20 12a8 8 0 1 1-2.4-5.7M20 5v5h-5", mail:"M3 6h18v12H3zM3 7l9 7 9-7",
+  sheet:"M5 3h14v18H5zM5 9h14M5 15h14M11 3v18"
+};
+const ic = (n, cls="i") => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${P[n]||P.wallet}"/></svg>`;
+
+/* ================= Helpers ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = n => Math.round(n||0).toLocaleString("fr-FR").replace(/ | /g," ");
+const money = n => fmt(n) + " F";
+const pad = n => String(n).padStart(2,"0");
+const isoOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const NOW = new Date(), TODAY = isoOf(NOW);
+const ymOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+const shiftYM = (ym,k) => { const [y,m] = ym.split("-").map(Number); return ymOf(new Date(y,m-1+k,1)); };
+const addMonths = (iso,k) => { const [y,m,d] = iso.split("-").map(Number); const last = new Date(y,m-1+k+1,0).getDate(); return isoOf(new Date(y,m-1+k,Math.min(d,last))); };
+const addDays = (iso,k) => { const [y,m,d] = iso.split("-").map(Number); return isoOf(new Date(y,m-1,d+k)); };
+const monthName = (ym,o={month:"long",year:"numeric"}) => { const [y,m] = ym.split("-").map(Number); return new Date(y,m-1,1).toLocaleDateString("fr-FR",o); };
+const dateTxt = (iso,o={day:"numeric",month:"short",year:"numeric"}) => iso ? new Date(iso+"T12:00:00").toLocaleDateString("fr-FR",o) : "";
+const dayLabel = iso => iso===TODAY ? "Aujourd'hui" : iso===addDays(TODAY,-1) ? "Hier" : dateTxt(iso,{weekday:"long",day:"numeric",month:"long"});
+const newId = p => p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const catList = (sp,t) => CATS[sp][t];
+const catName = (sp,t,k) => (catList(sp,t).find(c=>c[0]===k)||[k,k])[1];
+const catColor = (sp,t,k) => { const i = Math.max(0, catList(sp,t).findIndex(c=>c[0]===k)); return `var(--c${t==="in"?[3,1,6,5,9][i%5]:1+(i%9)})`; };
+const initials = n => String(n||"?").trim().split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase() || "?";
+const hueOf = s => { let h=0; for (const c of String(s)) h = (h*31 + c.charCodeAt(0)) % 360; return h; };
+const avatar = (name, photo, size=44) => photo
+  ? `<img class="avatar" src="${esc(photo)}" alt="" style="width:${size}px;height:${size}px" referrerpolicy="no-referrer">`
+  : `<span class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size*.36)}px;background:hsl(${hueOf(name)} 50% 46%)">${esc(initials(name))}</span>`;
+const pmt = (P_, ratePct, n) => { const r = ratePct/100/12; return r ? P_*r/(1-Math.pow(1+r,-n)) : P_/n; };
+const waLink = (phone, text) => { let d = String(phone||"").replace(/\D/g,""); if (!d) return ""; if (d.startsWith("00")) d = d.slice(2); if (d.length===8) d = "228"+d; return `https://wa.me/${d}?text=${encodeURIComponent(text)}`; };
+
+/* ================= State ================= */
+const state = { space:"perso", month:ymOf(NOW), stack:[{s:"home"}], docs:new Map(), mode:"pending", email:"", photo:"", sheetUrl:"", filter:"all", debtFilter:"open", unlocked:false, acc:null, q:"" };
+try { const u = JSON.parse(localStorage.getItem("mf2-ui")||"{}"); if (u.space in CATS) state.space = u.space; } catch(e){}
+const saveUI = () => { try { localStorage.setItem("mf2-ui", JSON.stringify({space:state.space})); } catch(e){} };
+
+/* ================= Example data ================= */
+function makeSamples(){
+  const m = new Map(); let k = 0;
+  const put = (id,o) => m.set(id||("ex"+(k++)), o);
+  const cur = ymOf(NOW);
+  put("ex_c1",{kind:"contact",name:"Kossi Amegah",phone:"90 00 00 01"});
+  put("ex_c2",{kind:"contact",name:"Ama Dossou",phone:"91 00 00 02"});
+  put("ex_c3",{kind:"contact",name:"Agence Horizon Events",phone:"92 00 00 03"});
+  put("ex_acc",{kind:"account",bank:"Ma banque",name:"Compte courant",last4:"2864",openingBalance:850000,openingDate:shiftYM(cur,-5)+"-01"});
+  const loanStart = shiftYM(cur,-5)+"-10";
+  put("ex_loan",{kind:"loan",bank:"Ma banque",label:"Prêt équipement",principal:2000000,rate:9,months:24,startDate:loanStart,accountId:"ex_acc"});
+  const mens = Math.round(pmt(2000000,9,24));
+  for (let i=0;i<6;i++){
+    const ym = shiftYM(cur,-i);
+    const day = d => { const iso = `${ym}-${pad(d)}`; return (i===0 && iso>TODAY) ? null : iso; };
+    const v = (b,f) => Math.round((b + ((i*f)%5)*b*0.06)/500)*500;
+    const tx = (o,d) => { const date = day(d); if (date) put(null,{kind:"tx",createdAt:0,...o,date,amount:v(o.amount,3+o.cat.length)}); };
+    tx({space:"perso",type:"in",cat:"prestations",amount:285000,note:"Shooting mariage",method:"T-Money"},4);
+    tx({space:"perso",type:"in",cat:"salaire",amount:150000,note:"Vacation",method:"Banque",accountId:"ex_acc"},28);
+    tx({space:"perso",type:"out",cat:"logement",amount:75000,note:"Loyer",method:"Espèces"},2);
+    tx({space:"perso",type:"out",cat:"alim",amount:42000,note:"Marché",method:"Espèces"},6);
+    tx({space:"perso",type:"out",cat:"alim",amount:38000,note:"Courses",method:"Flooz"},19);
+    tx({space:"perso",type:"out",cat:"transport",amount:31000,note:"Zém et taxi",method:"Espèces"},9);
+    tx({space:"perso",type:"out",cat:"factures",amount:27500,note:"CEET + internet",method:"T-Money"},11);
+    tx({space:"perso",type:"out",cat:"famille",amount:40000,note:"Soutien famille",method:"Flooz"},15);
+    tx({space:"pro",type:"in",cat:"photo",amount:420000,note:"Couverture conférence",method:"Banque",accountId:"ex_acc"},5);
+    tx({space:"pro",type:"in",cat:"video",amount:220000,note:"Clip louange",method:"T-Money"},23);
+    tx({space:"pro",type:"out",cat:"prestataires",amount:140000,note:"Cadreur + monteur",method:"T-Money"},13);
+    tx({space:"pro",type:"out",cat:"materiel",amount:95000,note:"Cartes SD, batteries",method:"Espèces"},8);
+    tx({space:"pro",type:"out",cat:"com",amount:25000,note:"Forfaits data",method:"Flooz"},3);
+    if (i>0) { const d = addMonths(loanStart, 5-i); if (d<=TODAY) put(null,{kind:"tx",space:"perso",type:"out",cat:"pret",amount:mens,date:d,method:"Banque",accountId:"ex_acc",loanId:"ex_loan",note:`Échéance ${6-i}/24`}); }
+    if (i>=1) { const pm = shiftYM(cur,-i-1); put(null,{kind:"tx",space:"perso",type:"out",cat:"dime",amount:0,date:`${ym}-03`,method:"Espèces",titheMonth:pm,note:"Dîme "+monthName(pm)}); }
+  }
+  put("ex_k1",{kind:"contract",clientId:"ex_c3",title:"Gala annuel — couverture photo & vidéo",amount:650000,startDate:shiftYM(cur,-1)+"-15",status:"en cours"});
+  put(null,{kind:"tx",space:"pro",type:"in",cat:"event",amount:400000,date:shiftYM(cur,-1)+"-16",method:"Banque",accountId:"ex_acc",contractId:"ex_k1",contactId:"ex_c3",note:"Acompte gala"});
+  put(null,{kind:"tx",space:"pro",type:"out",cat:"prestataires",amount:90000,date:shiftYM(cur,-1)+"-20",method:"T-Money",contractId:"ex_k1",note:"Équipe tournage gala"});
+  put(null,{kind:"tx",space:"pro",type:"out",cat:"location",amount:35000,date:shiftYM(cur,-1)+"-20",method:"Espèces",contractId:"ex_k1",note:"Location éclairage"});
+  put("ex_d1",{kind:"debt",contactId:"ex_c1",direction:"owed",amount:150000,label:"Prêt pour sa moto",date:shiftYM(cur,-2)+"-05",dueDate:addDays(TODAY,2),payments:[{id:"p1",amount:50000,date:shiftYM(cur,-1)+"-05"}]});
+  put("ex_d2",{kind:"debt",contactId:"ex_c2",direction:"owe",amount:80000,label:"Avance pour objectif photo",date:shiftYM(cur,-1)+"-12",dueDate:addDays(TODAY,-3),payments:[]});
+  [["perso","alim",85000],["perso","transport",30000],["perso","loisirs",20000],["pro","prestataires",160000],["pro","materiel",100000]].forEach(([space,cat,limit]) => put(`budget_${space}_${cat}`,{kind:"budget",space,cat,limit}));
+  put("ex_g1",{kind:"goal",space:"perso",name:"Fonds d'urgence",target:600000,saved:210000});
+  put("ex_g2",{kind:"goal",space:"pro",name:"Nouvel objectif photo",target:900000,saved:350000});
+  // sample tithe amounts follow the computed rule
+  for (const [id,d] of m) if (d.kind==="tx" && d.titheMonth) { const due = titheCalc(d.titheMonth, m).due; if (due>0) d.amount = Math.round(due/500)*500; else m.delete(id); }
+  return m;
+}
+const usingSamples = () => ![...state.docs.values()].some(d => d.kind!=="settings");
+let SAMPLES;
+const all = () => usingSamples() ? SAMPLES : state.docs;
+const realOnly = id => !(usingSamples() && SAMPLES.has(id));
+
+function list(kind, pred, src){ const r=[]; for (const [id,d] of (src||all())) if (d.kind===kind && (!pred||pred(d))) r.push({id,...d}); return r; }
+function get(id){ if (!id) return null; const d = all().get(id); return d ? {id,...d} : null; }
+function settings(){ return Object.assign({name:"",titheBase:"global",tithePct:10,remindEmail:false,remindDays:3,lockHash:""}, state.docs.get("settings")||{}); }
+const contactsReal = () => list("contact", null, state.docs).sort((a,b)=>a.name.localeCompare(b.name,"fr"));
+const contactName = id => (get(id)||{}).name || "Contact supprimé";
+
+/* ================= Storage ================= */
+/* Local-first storage: every change is kept on this phone and queued; the queue is sent to Google Sheets when online. */
+const K = {cfg:"mf3-cfg", data:"mf3-data", out:"mf3-outbox", meta:"mf3-meta", photo:"mf3-photo"};
+const ls = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+let cfg = ls.get(K.cfg, null), outbox = ls.get(K.out, {}), meta = ls.get(K.meta, {}), syncing = false, syncErr = "", syncTimer = null;
+const pendingCount = () => Object.keys(outbox).length + (meta.photoPending ? 1 : 0);
+function persistAll(){
+  const ok = ls.set(K.data, [...state.docs]) & ls.set(K.out, outbox) & ls.set(K.meta, meta);
+  if (!ok) toast("La mémoire de l'appli est pleine sur ce téléphone. Synchronise puis libère de l'espace.");
+}
+async function api(action, payload){
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
+  try {
+    const r = await fetch(cfg.url, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(Object.assign({key:cfg.key, action}, payload||{})), signal: ctl.signal, redirect:"follow"});
+    let j; try { j = await r.json(); } catch(e){ throw new Error("Réponse illisible du serveur : vérifie l'adresse et que l'accès est sur « Tout le monde »."); }
+    if (!j.ok) throw new Error(j.error === "BAD_KEY" ? "Clé secrète incorrecte." : (j.error || "Erreur du serveur"));
+    return j;
+  } finally { clearTimeout(t); }
+}
+const ago = ts => { if (!ts) return "jamais"; const m = Math.round((Date.now()-ts)/60000); return m<1 ? "à l'instant" : m<60 ? `il y a ${m} min` : m<1440 ? `il y a ${Math.round(m/60)} h` : "le " + new Date(ts).toLocaleDateString("fr-FR",{day:"numeric",month:"short"}); };
+function syncStatus(){
+  const n = pendingCount(), w = n ? ` · ${n} modification${n>1?"s":""} en attente` : "";
+  if (!cfg) return {c:"", t: usingSamples() ? "Données d'exemple" : "Sur ce téléphone · synchro non configurée"};
+  if (syncing) return {c:"wait", t:"Synchronisation…"};
+  if (!navigator.onLine) return {c:"wait", t:"Hors ligne" + w};
+  if (syncErr) return {c:"err", t:"Synchro en échec" + w};
+  if (n) return {c:"wait", t:`${n} modification${n>1?"s":""} à envoyer`};
+  return {c:"ok", t:"Synchronisé " + ago(meta.lastSync)};
+}
+function syncUI(){
+  const st = syncStatus();
+  document.querySelectorAll("[data-sync]").forEach(el => { el.className = el.dataset.sync + " " + st.c; el.querySelector("span").textContent = st.t; });
+}
+const syncChip = (cls="syncchip") => { const st = syncStatus(); return cls === "syncchip"
+  ? `<button class="${cls} ${st.c}" data-sync="${cls}" data-act="go" data-v="sync"><i></i><span>${esc(st.t)}</span></button>`
+  : `<div class="${cls} ${st.c}" data-sync="${cls}"><i></i><span>${esc(st.t)}</span></div>`; };
+function scheduleSync(delay=1200){ clearTimeout(syncTimer); syncUI(); if (cfg) syncTimer = setTimeout(sync, delay); }
+async function sync(){
+  if (!cfg || syncing) return;
+  if (!navigator.onLine) { syncUI(); return; }
+  syncing = true; syncUI();
+  const items = Object.values(outbox), sendPhoto = meta.photoPending ? state.photo : null;
+  try {
+    const res = await api("sync", {items, photoV: meta.photoV || 0, photo: sendPhoto});
+    items.forEach(it => { if (outbox[it.id] && outbox[it.id]._u === it._u) delete outbox[it.id]; });
+    const m = new Map(res.docs);
+    Object.values(outbox).forEach(it => it.del ? m.delete(it.id) : m.set(it.id, it.data));
+    const changed = JSON.stringify([...m].sort()) !== JSON.stringify([...state.docs].sort());
+    state.docs = m;
+    if (sendPhoto !== null && state.photo === sendPhoto) meta.photoPending = false;
+    let photoChanged = false;
+    if (typeof res.photo === "string" && !meta.photoPending) { state.photo = res.photo; ls.set(K.photo, res.photo); photoChanged = true; }
+    meta.photoV = res.photoV || 0; meta.lastSync = Date.now(); syncErr = "";
+    if (res.email) cfg.email = state.email = res.email;
+    if (res.sheetUrl) cfg.sheetUrl = state.sheetUrl = res.sheetUrl;
+    ls.set(K.cfg, cfg); persistAll();
+    if (changed || photoChanged) render();
+  } catch(e){ syncErr = e && e.name === "AbortError" ? "Délai dépassé" : (e && e.message) || "Erreur"; }
+  syncing = false; syncUI();
+  if (!syncErr && Object.keys(outbox).length) scheduleSync(400);
+}
+function readable(id, d){
+  const sp = SPACE_NAME[d.space]||"";
+  switch (d.kind){
+    case "tx": return [sp, d.type==="in"?"Revenu":"Dépense", d.date, d.amount, catName(d.space,d.type,d.cat), d.method||"", d.note||"", d.contactId?contactName(d.contactId):"", d.contractId?((get(d.contractId)||{}).title||""):""];
+    case "budget": return [sp, catName(d.space,"out",d.cat), d.limit];
+    case "goal": return [sp, d.name, d.target, d.saved, d.deadline||""];
+    case "contact": return [d.name, d.phone||"", d.email||""];
+    case "debt": { const paid = (d.payments||[]).reduce((s,p)=>s+p.amount,0); return [d.direction==="owe"?"Je dois":"On me doit", contactName(d.contactId), d.label||"", d.amount, paid, d.amount-paid, d.dueDate||""]; }
+    case "contract": return [contactName(d.clientId), d.title, d.amount, d.startDate||"", d.status||""];
+    case "account": return [d.bank, d.name||"", d.openingBalance, d.openingDate];
+    case "bankmv": return [(get(d.accountId)||{}).bank||"", {dep:"Dépôt",ret:"Retrait",adj:"Ajustement"}[d.type], d.date, d.amount, d.note||""];
+    case "loan": return [d.bank, d.label, d.principal, d.rate, d.months, Math.round(d.monthly||pmt(d.principal,d.rate,d.months)), d.startDate];
+    default: return [];
+  }
+}
+const store = {
+  async save(id, data){
+    if (!realOnly(id)) { toast("C'est un exemple. Ajoute tes propres données pour commencer."); return false; }
+    const doc = Object.assign({}, data, {_u: Date.now()});
+    state.docs.set(id, doc);
+    outbox[id] = {id, kind:doc.kind, data:doc, readable:readable(id, doc), _u:doc._u};
+    persistAll(); render(); scheduleSync(); return true;
+  },
+  async saveMany(items){
+    const u = Date.now();
+    items.forEach(([id, d]) => { const doc = Object.assign({}, d, {_u:u}); state.docs.set(id, doc); outbox[id] = {id, kind:doc.kind, data:doc, readable:readable(id, doc), _u:u}; });
+    persistAll(); render(); scheduleSync(); return true;
+  },
+  async remove(id){
+    if (!realOnly(id)) { toast("C'est un exemple : il disparaîtra dès que tu ajoutes tes données."); return false; }
+    const prev = state.docs.get(id); if (!prev) return true;
+    state.docs.delete(id);
+    outbox[id] = {id, kind:prev.kind, del:true, _u:Date.now()};
+    persistAll(); render(); scheduleSync(); return true;
+  }
+};
+
+function boot(){
+  state.docs = new Map(ls.get(K.data, []));
+  state.photo = ls.get(K.photo, "") || "";
+  if (cfg) { state.email = cfg.email || ""; state.sheetUrl = cfg.sheetUrl || ""; }
+  state.mode = "local";
+  if (settings().lockHash) showLock(); else state.unlocked = true;
+  render(); sync();
+}
+
+/* ================= Calculations ================= */
+function txs(pred, src){ return list("tx", pred, src).sort((a,b)=> b.date.localeCompare(a.date) || (b.createdAt||0)-(a.createdAt||0)); }
+function totals(arr){ let i=0,o=0; arr.forEach(t => t.type==="in" ? i+=t.amount : o+=t.amount); return {in:i,out:o,net:i-o}; }
+function titheCalc(ym, src){
+  const s = src ? {titheBase:"global",tithePct:10} : settings();
+  const base = list("tx", t => t.date.startsWith(ym) && !t.titheMonth && (s.titheBase==="global" || t.space===s.titheBase), src);
+  const profit = totals(base).net;
+  const due = Math.max(0, Math.round(profit * (s.tithePct||10) / 100));
+  const paid = list("tx", t => t.titheMonth===ym, src).reduce((a,t)=>a+t.amount,0);
+  return {profit, due, paid, rest: Math.max(0, due-paid)};
+}
+function debtInfo(d){ const paid = (d.payments||[]).reduce((s,p)=>s+p.amount,0); const rest = Math.max(0, d.amount-paid);
+  let st = "ok", lbl = "À jour";
+  if (rest<=0) { st="ok"; lbl="Soldé"; }
+  else if (d.dueDate && d.dueDate < TODAY) { st="bad"; lbl="En retard"; }
+  else if (d.dueDate && d.dueDate <= addDays(TODAY,7)) { st="warn"; lbl="Bientôt"; }
+  else { st="info"; lbl="En cours"; }
+  return {paid, rest, st, lbl, pct: d.amount ? Math.min(1, paid/d.amount) : 0};
+}
+function contractInfo(c){ const t = txs(x => x.contractId===c.id); const cashed = t.filter(x=>x.type==="in").reduce((s,x)=>s+x.amount,0); const costs = t.filter(x=>x.type==="out").reduce((s,x)=>s+x.amount,0);
+  return {t, cashed, costs, rest: Math.max(0,c.amount-cashed), profit: cashed-costs, margin: cashed ? (cashed-costs)/cashed : 0, pct: c.amount ? Math.min(1,cashed/c.amount) : 0}; }
+function accBalance(a){ let b = Number(a.openingBalance)||0;
+  list("bankmv", m => m.accountId===a.id).forEach(m => b += m.type==="ret" ? -m.amount : m.amount);
+  txs(t => t.accountId===a.id && t.date>=a.openingDate).forEach(t => b += t.type==="in" ? t.amount : -t.amount);
+  return b; }
+function loanInfo(l){
+  const monthly = Number(l.monthly) || pmt(l.principal, l.rate, l.months);
+  const paid = txs(t => t.loanId===l.id).reduce((s,t)=>s+t.amount,0);
+  const k = Math.min(l.months, Math.floor(paid/monthly + 0.005));
+  const r = l.rate/100/12; let bal = l.principal; const rows = [];
+  for (let i=1;i<=l.months;i++){ const int = bal*r; let pr = monthly-int; if (i===l.months) pr = bal; bal = Math.max(0, bal-pr); rows.push({i, date:addMonths(l.startDate,i-1), pay: i===l.months ? pr+int : monthly, int, pr, bal}); }
+  const remaining = k>0 ? rows[k-1].bal : l.principal;
+  const next = k < l.months ? rows[k] : null;
+  return {monthly, paid, k, rows, remaining, next, total: rows.reduce((s,x)=>s+x.pay,0)};
+}
+function reminders(){
+  const out = [], s = settings(), lim = addDays(TODAY, Math.max(3, s.remindDays||3));
+  list("debt").forEach(d => { const di = debtInfo(d); if (di.rest>0 && d.dueDate && d.dueDate <= lim) out.push({icon: d.direction==="owe"?"up":"down", tone: d.dueDate<TODAY?"bad":"warn",
+    title: d.direction==="owe" ? `Rembourser ${contactName(d.contactId)}` : `${contactName(d.contactId)} doit te rembourser`,
+    sub: `${money(di.rest)} · ${d.dueDate<TODAY?"en retard depuis le":"échéance le"} ${dateTxt(d.dueDate,{day:"numeric",month:"short"})}`, go:{s:"debt",id:d.id}, date:d.dueDate}); });
+  list("loan").forEach(l => { const li = loanInfo(l); if (li.next && li.next.date <= lim) out.push({icon:"bank", tone: li.next.date<TODAY?"bad":"warn", title:`Échéance ${li.next.i}/${l.months} · ${l.label}`, sub:`${money(li.monthly)} · ${li.next.date<TODAY?"en retard depuis le":"le"} ${dateTxt(li.next.date,{day:"numeric",month:"short"})}`, go:{s:"loan",id:l.id}, date:li.next.date}); });
+  const pm = shiftYM(ymOf(NOW),-1), tc = titheCalc(pm);
+  if (tc.rest>0) out.push({icon:"church", tone:"gold", title:`Dîme de ${monthName(pm,{month:"long"})}`, sub:`${money(tc.rest)} à donner (${settings().tithePct} % du bénéfice)`, go:{s:"dime"}, date:pm+"-28"});
+  list("contract", c => c.status!=="terminé").forEach(c => { const ci = contractInfo(c); if (c.endDate && c.endDate < TODAY && ci.rest>0) out.push({icon:"contract", tone:"warn", title:`Solde client · ${c.title}`, sub:`${money(ci.rest)} restent à encaisser`, go:{s:"contract",id:c.id}, date:c.endDate}); });
+  return out.sort((a,b)=>a.date.localeCompare(b.date));
+}
+
+/* ================= Navigation ================= */
+const top = () => state.stack[state.stack.length-1];
+const go = (scr) => { state.stack.push(scr); render(); window.scrollTo(0,0); };
+const back = () => { if (state.stack.length>1) state.stack.pop(); render(); window.scrollTo(0,0); };
+const tab = t => { state.stack = [{s:t}]; render(); window.scrollTo(0,0); };
+
+function render(){
+  const scr = top(); const fn = SCREENS[scr.s] || SCREENS.home;
+  let html; try { html = fn(scr); } catch(e){ console.error(e); state.stack = [{s:"home"}]; html = SCREENS.home({s:"home"}); }
+  $("#app").innerHTML = html + navBar();
+}
+function navBar(){
+  const root = state.stack[0].s;
+  const b = (t,icon,l) => `<button data-act="tab" data-v="${t}" ${root===t?'aria-current="page"':""}>${ic(icon)}${l}</button>`;
+  return `<nav class="tabs" aria-label="Sections"><div class="in">${b("home","home","Accueil")}${b("registre","book","Registre")}
+    <button class="plus" data-act="addMenu" aria-label="Ajouter"><span>${ic("plus")}</span></button>${b("contrats","contract","Contrats")}${b("plus","grid","Plus")}</div></nav>`;
+}
+function subHero(title, sub, opts={}){
+  return `<header class="hero subhero"><div class="hrow"><button class="iconbtn" data-act="back" aria-label="Retour">${ic("back")}</button>${opts.right||""}</div>
+    <div><h1>${esc(title)}</h1>${sub?`<p>${sub}</p>`:""}</div>${opts.extra||""}</header>`;
+}
+function rootHero(title, sub, opts={}){
+  return `<header class="hero subhero"><div class="hrow"><h1 style="margin:0;font-size:22px;font-weight:800">${esc(title)}</h1>${opts.right||profileBtn()}</div>${sub?`<p>${sub}</p>`:""}${opts.extra||""}</header>`;
+}
+const profileBtn = () => `<button data-act="go" data-v="profil" style="border:0;background:none;padding:0" aria-label="Profil">${avatar(settings().name||state.email||"Moi", state.photo, 42)}</button>`;
+const sampleBanner = () => usingSamples() && state.mode!=="pending" ? `<div class="banner"><b>Exemples affichés.</b> Ces chiffres sont fictifs. Dès que tu enregistres ta première opération, dette, contrat ou compte, ils disparaissent.</div>` : "";
+const monthNav = () => `<div class="mnav"><button data-act="month" data-v="-1" aria-label="Mois précédent">‹</button><span class="num">${esc(monthName(state.month))}</span><button data-act="month" data-v="1" aria-label="Mois suivant" ${state.month>=ymOf(NOW)?"disabled style='opacity:.3'":""}>›</button></div>`;
+const spaceSeg = () => `<div class="segw" role="group" aria-label="Espace"><button data-act="space" data-v="perso" aria-pressed="${state.space==="perso"}">Perso</button><button data-act="space" data-v="pro" aria-pressed="${state.space==="pro"}">Lambano</button></div>`;
+
+/* ================= Rows ================= */
+function txRow(t){
+  const name = catName(t.space,t.type,t.cat), col = catColor(t.space,t.type,t.cat);
+  const extra = [name, t.contactId ? contactName(t.contactId) : "", t.method||""].filter(Boolean).join(" · ");
+  return `<button class="row" data-act="editTx" data-id="${esc(t.id)}"><span class="ico" style="color:${col}">${ic(CAT_ICON[t.cat]||"wallet")}</span>
+    <span class="t"><b>${esc(t.note||name)}</b><span>${esc(extra)}</span></span>
+    <span class="a num"><span class="${t.type==="in"?"pos":""}" style="font-size:14.5px;font-weight:700;color:${t.type==="in"?"var(--good)":"var(--ink)"}">${t.type==="in"?"+":"−"} ${money(t.amount)}</span><span>${esc(dateTxt(t.date,{day:"numeric",month:"short"}))}</span></span></button>`;
+}
+function txGroups(arr, limit){
+  if (!arr.length) return `<p class="empty">Aucune opération.</p>`;
+  const by = {}; arr.slice(0, limit||arr.length).forEach(t => (by[t.date] ||= []).push(t));
+  return Object.entries(by).map(([d,items]) => `<div class="grp">${esc(dayLabel(d))}</div><div class="card"><div class="list">${items.map(txRow).join("")}</div></div>`).join("");
+}
+function filterChips(){
+  const c = (k,l,dot) => `<button class="chip" data-act="filter" data-v="${k}" aria-pressed="${state.filter===k}">${dot?`<i style="background:${dot}"></i>`:""}${l}</button>`;
+  return `<div class="chips">${c("all","Tout")}${c("in","Revenus","var(--good)")}${c("out","Dépenses","var(--bad)")}</div>`;
+}
+
+/* ================= Screens ================= */
+const SCREENS = {};
+
+SCREENS.home = () => {
+  const mtx = txs(t => t.space===state.space && t.date.startsWith(state.month));
+  const t = totals(mtx), rem = reminders(), s = settings();
+  const shown = state.filter==="all" ? mtx : mtx.filter(x=>x.type===state.filter);
+  const pm = shiftYM(state.month,-1), tc = titheCalc(pm), tcNow = titheCalc(state.month);
+  let h = `<header class="hero">
+    <div class="hrow">${spaceSeg()}<div class="hicons"><button class="iconbtn" data-act="go" data-v="rappels" aria-label="Rappels">${ic("bell")}${rem.length?`<span class="badge">${rem.length}</span>`:""}</button>${profileBtn()}</div></div>
+    <div>${monthNav()}<div class="bal num">${t.net<0?"−":""}${fmt(Math.abs(t.net))}<small>F CFA</small></div>
+    <div class="ballbl">Solde du mois · ${esc(SPACE_NAME[state.space])} · <span class="num">+${fmt(t.in)} / −${fmt(t.out)}</span></div>${syncChip()}</div>
+    <div class="quick">
+      <button data-act="newTx" data-v="out"><span class="q">${ic("up")}</span>Dépense</button>
+      <button data-act="newTx" data-v="in"><span class="q">${ic("down")}</span>Revenu</button>
+      <button data-act="go" data-v="dime"><span class="q">${ic("church")}</span>Dîme</button>
+      <button data-act="go" data-v="banque"><span class="q">${ic("bank")}</span>Banque</button>
+    </div></header><div class="panel">${sampleBanner()}`;
+  if (!cfg && !meta.hideTip) h += `<section class="card"><div class="ch"><h2>Sauvegarde Google Sheets</h2><span class="pill info">Conseillé</span></div><p class="small muted" style="margin:0">L'appli fonctionne hors ligne. Connecte ton tableur Google pour sauvegarder tes données et les retrouver sur tous tes appareils.</p><div class="btns"><button class="btn" data-act="go" data-v="sync">Connecter</button><button class="btn ghost" data-act="hideTip">Plus tard</button></div></section>`;
+  if (rem.length) h += `<section class="card"><div class="ch"><h2>Rappels</h2><button class="link" data-act="go" data-v="rappels">Tout voir</button></div>${remList(rem.slice(0,3))}</section>`;
+  h += `<section class="card"><div class="ch"><h2>Opérations récentes</h2><button class="link" data-act="go" data-v="ops">Voir tout</button></div>${filterChips()}</section>${txGroups(shown, 6)}`;
+  h += `<section class="card"><div class="ch"><h2>Dîme</h2><span class="pill ${tc.rest>0?"gold":"ok"}">${tc.rest>0?"À donner":"À jour"}</span></div>
+    <div class="kv num"><div><span>${esc(monthName(pm,{month:"long"}))} · dû</span><b>${money(tc.due)}</b></div><div><span>Reste à donner</span><b style="color:${tc.rest>0?"var(--gold)":"var(--good)"}">${money(tc.rest)}</b></div></div>
+    <p class="small muted" style="margin:0">Ce mois-ci, estimation : <b class="num">${money(tcNow.due)}</b> (${s.tithePct} % de ${money(Math.max(0,tcNow.profit))} de bénéfice ${s.titheBase==="global"?"perso + Lambano":s.titheBase==="pro"?"Lambano":"perso"}).</p>
+    ${tc.rest>0?`<button class="btn soft" data-act="payTithe" data-v="${pm}">${ic("church")}Donner la dîme de ${esc(monthName(pm,{month:"long"}))}</button>`:""}</section>`;
+  const accs = list("account");
+  if (accs.length) h += `<section class="card"><div class="ch"><h2>Banque</h2><button class="link" data-act="go" data-v="banque">Détails</button></div><div class="list">${accs.map(a=>`<button class="row" data-act="go" data-v="banque" data-id="${esc(a.id)}"><span class="ico" style="color:var(--brand)">${ic("bank")}</span><span class="t"><b>${esc(a.bank)}</b><span>${esc(a.name||"")} ${a.last4?"•••• "+esc(a.last4):""}</span></span><span class="a num">${money(accBalance(a))}</span></button>`).join("")}</div></section>`;
+  return h + `</div>`;
+};
+function remList(rem){
+  if (!rem.length) return `<p class="empty">Aucun rappel pour le moment.</p>`;
+  const tone = {bad:["var(--bad-soft)","var(--bad)"],warn:["var(--warn-soft)","var(--warn)"],gold:["var(--gold-soft)","var(--gold)"]};
+  return rem.map(r => `<button class="alert" data-act="goto" data-v='${esc(JSON.stringify(r.go))}'><span class="ico" style="background:${tone[r.tone][0]};color:${tone[r.tone][1]}">${ic(r.icon)}</span><span style="min-width:0"><b>${esc(r.title)}</b><span class="num">${esc(r.sub)}</span></span>${ic("chev")}</button>`).join("");
+}
+SCREENS.rappels = () => subHero("Rappels", "Remboursements, échéances de prêt, dîme et soldes clients") + `<div class="panel"><section class="card">${remList(reminders())}</section>
+  <p class="small muted" style="margin:0 4px">${cfg ? "Tu peux aussi recevoir ces rappels par e-mail chaque matin : Profil → Rappels par e-mail." : "Une fois ton Google Sheets connecté, ces rappels peuvent aussi arriver par e-mail chaque matin."}</p></div>`;
+
+SCREENS.ops = () => {
+  const mtx = txs(t => t.space===state.space && t.date.startsWith(state.month));
+  const shown = state.filter==="all" ? mtx : mtx.filter(x=>x.type===state.filter), t = totals(mtx);
+  return `<header class="hero subhero"><div class="hrow"><button class="iconbtn" data-act="back" aria-label="Retour">${ic("back")}</button>${spaceSeg()}</div>
+    <div><h1>Opérations</h1>${monthNav()}</div></header><div class="panel">
+    <div class="kv num"><div><span>Revenus</span><b style="color:var(--good)">${money(t.in)}</b></div><div><span>Dépenses</span><b>${money(t.out)}</b></div></div>
+    ${filterChips()}${txGroups(shown)}</div>`;
+};
+
+/* --- Registre --- */
+SCREENS.registre = () => {
+  const debts = list("debt"), infos = debts.map(d => ({...d, ...debtInfo(d)}));
+  const owed = infos.filter(d=>d.direction==="owed").reduce((s,d)=>s+d.rest,0), owe = infos.filter(d=>d.direction==="owe").reduce((s,d)=>s+d.rest,0);
+  const f = state.debtFilter, shown = infos.filter(d => f==="open" ? d.rest>0 : f==="done" ? d.rest<=0 : true).sort((a,b)=> (a.rest<=0)-(b.rest<=0) || String(a.dueDate||"9").localeCompare(String(b.dueDate||"9")));
+  const c = (k,l) => `<button class="chip" data-act="debtFilter" data-v="${k}" aria-pressed="${f===k}">${l}</button>`;
+  const sec = (dir, title) => { const items = shown.filter(d=>d.direction===dir); return items.length ? `<div class="grp">${title}</div><div class="card"><div class="list">${items.map(debtRow).join("")}</div></div>` : ""; };
+  return rootHero("Registre", "Ce que tu dois et ce qu'on te doit, jusqu'au solde", {extra:`<div class="kv num" style="margin-top:4px"><div style="background:rgb(255 255 255 / .14)"><span style="color:rgb(255 255 255 / .8)">On me doit</span><b>${money(owed)}</b></div><div style="background:rgb(255 255 255 / .14)"><span style="color:rgb(255 255 255 / .8)">Je dois</span><b>${money(owe)}</b></div></div>`})
+   + `<div class="panel">${sampleBanner()}<div class="ch"><div class="chips">${c("open","En cours")}${c("done","Soldés")}${c("all","Tout")}</div></div>
+   ${sec("owed","On me doit")}${sec("owe","Je dois")}${shown.length?"":`<p class="empty">Rien ici.</p>`}
+   <button class="btn wide" data-act="newDebt">${ic("plus")}Nouvelle dette ou créance</button></div>`;
+};
+function debtRow(d){
+  const c = get(d.contactId)||{name:"?"};
+  return `<button class="row" data-act="go" data-v="debt" data-id="${esc(d.id)}">${avatar(c.name,c.photo,44)}
+    <span class="t"><b>${esc(c.name)}</b><span>${esc(d.label||"")}${d.dueDate?" · "+esc(dateTxt(d.dueDate,{day:"numeric",month:"short"})):""}</span>
+    <span class="bar ${d.direction==="owed"?"good":"warn"}" style="margin-top:6px"><i style="width:${d.pct*100}%"></i></span></span>
+    <span class="a num"><span style="font-size:14.5px;font-weight:700;color:${d.direction==="owed"?"var(--good)":"var(--bad)"}">${money(d.rest)}</span><span class="pill ${d.st}">${d.lbl}</span></span></button>`;
+}
+SCREENS.debt = (scr) => {
+  const d = get(scr.id); if (!d) { state.stack.pop(); return SCREENS[top().s](top()); }
+  const di = debtInfo(d), c = get(d.contactId)||{name:"?"}, owe = d.direction==="owe";
+  const msg = `Bonjour ${c.name.split(" ")[0]}, petit rappel amical pour le remboursement de ${money(di.rest)} (« ${d.label||"prêt"} »)${d.dueDate?`, prévu pour le ${dateTxt(d.dueDate,{day:"numeric",month:"long"})}`:""}. Merci et que Dieu te bénisse !`;
+  const wa = !owe && di.rest>0 ? waLink(c.phone, msg) : "";
+  return subHero(c.name, owe ? "Je lui dois" : "Me doit", {right:`<button class="iconbtn" data-act="editDebt" data-id="${esc(d.id)}" aria-label="Modifier">${ic("edit")}</button>`}) + `<div class="panel">
+    <section class="card"><div class="ch"><h2>${esc(d.label||"Remboursement")}</h2><span class="pill ${di.st}">${di.lbl}</span></div>
+      <div class="kv num"><div><span>Montant initial</span><b>${money(d.amount)}</b></div><div><span>Remboursé</span><b style="color:var(--good)">${money(di.paid)}</b></div>
+      <div><span>Reste à ${owe?"payer":"recevoir"}</span><b style="color:${owe?"var(--bad)":"var(--brand)"}">${money(di.rest)}</b></div><div><span>Échéance</span><b>${d.dueDate?esc(dateTxt(d.dueDate)):"—"}</b></div></div>
+      <div class="bar ${owe?"warn":"good"}"><i style="width:${di.pct*100}%"></i></div>
+      <div class="btns">${di.rest>0?`<button class="btn" data-act="debtPay" data-id="${esc(d.id)}">${ic("check")}${owe?"J'ai payé":"J'ai reçu"}</button>`:""}
+      ${wa?`<a class="btn wa" href="${esc(wa)}" target="_blank" rel="noopener">${ic("chat")}Relancer sur WhatsApp</a>`:""}
+      ${!owe && di.rest>0 && !c.phone ? `<button class="btn ghost" data-act="go" data-v="contact" data-id="${esc(d.contactId)}">Ajouter son numéro pour relancer</button>`:""}</div></section>
+    <section class="card"><h2>Historique des paiements</h2>${(d.payments||[]).length ? `<div class="list">${[...d.payments].sort((a,b)=>b.date.localeCompare(a.date)).map(p=>`<div class="row"><span class="ico" style="color:var(--good)">${ic("check")}</span><span class="t"><b class="num">${money(p.amount)}</b><span>${esc(dateTxt(p.date))}${p.note?" · "+esc(p.note):""}</span></span><span class="a"><button class="link" style="color:var(--muted)" data-act="delPayment" data-id="${esc(d.id)}" data-v="${esc(p.id)}">Retirer</button></span></div>`).join("")}</div>` : `<p class="empty">Aucun paiement enregistré.</p>`}
+      <p class="small muted" style="margin:0">Créé le ${esc(dateTxt(d.date))}.</p></section>
+    <button class="btn danger wide" data-act="delDebt" data-id="${esc(d.id)}">${ic("trash")}Supprimer cette ligne</button></div>`;
+};
+
+/* --- Contrats --- */
+SCREENS.contrats = () => {
+  const cs = list("contract").map(c => ({...c, ...contractInfo(c)})).sort((a,b)=> (a.status==="terminé")-(b.status==="terminé") || String(b.startDate).localeCompare(String(a.startDate)));
+  const totC = cs.reduce((s,c)=>s+c.cashed,0), totP = cs.reduce((s,c)=>s+c.profit,0), totR = cs.reduce((s,c)=>s+c.rest,0);
+  return rootHero("Contrats", "Lambano Production · encaissements, charges et bénéfice", {extra:`<div class="kv num"><div style="background:rgb(255 255 255 / .14)"><span style="color:rgb(255 255 255 / .8)">Bénéfice cumulé</span><b>${money(totP)}</b></div><div style="background:rgb(255 255 255 / .14)"><span style="color:rgb(255 255 255 / .8)">Reste à encaisser</span><b>${money(totR)}</b></div></div>`})
+  + `<div class="panel">${sampleBanner()}${cs.length ? cs.map(c => { const cl = get(c.clientId)||{name:"Client"};
+    return `<button class="card" style="border:0;text-align:left" data-act="go" data-v="contract" data-id="${esc(c.id)}"><div class="ch"><div style="display:flex;gap:12px;align-items:center;min-width:0">${avatar(cl.name,cl.photo,42)}<div style="min-width:0"><b style="display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.title)}</b><span class="small muted">${esc(cl.name)}</span></div></div><span class="pill ${c.status==="terminé"?"ok":c.rest>0?"info":"ok"}">${c.status==="terminé"?"Terminé":c.rest>0?"En cours":"Payé"}</span></div>
+    <div class="bar good"><i style="width:${c.pct*100}%"></i></div>
+    <div class="kv num"><div><span>Encaissé / contrat</span><b>${fmt(c.cashed)} / ${fmt(c.amount)}</b></div><div><span>Bénéfice</span><b style="color:${c.profit>=0?"var(--good)":"var(--bad)"}">${money(c.profit)}</b></div></div></button>`; }).join("") : `<p class="empty">Aucun contrat. Ajoute ton premier contrat client.</p>`}
+  <button class="btn wide" data-act="newContract">${ic("plus")}Nouveau contrat</button><p class="small muted" style="margin:0 4px">Total encaissé sur tous les contrats : <b class="num">${money(totC)}</b></p></div>`;
+};
+SCREENS.contract = (scr) => {
+  const c = get(scr.id); if (!c) { state.stack.pop(); return SCREENS[top().s](top()); }
+  const ci = contractInfo(c), cl = get(c.clientId)||{name:"Client"};
+  const msg = `Bonjour ${cl.name}, merci pour votre confiance. Pour le contrat « ${c.title} », le solde restant est de ${money(ci.rest)}. Merci de nous indiquer la date de règlement. Lambano Production`;
+  const wa = ci.rest>0 ? waLink(cl.phone, msg) : "";
+  const ins = ci.t.filter(t=>t.type==="in"), outs = ci.t.filter(t=>t.type==="out");
+  return subHero(c.title, esc(cl.name) + (c.startDate?" · depuis le "+esc(dateTxt(c.startDate)):""), {right:`<button class="iconbtn" data-act="editContract" data-id="${esc(c.id)}" aria-label="Modifier">${ic("edit")}</button>`}) + `<div class="panel">
+    <section class="card"><div class="kv num"><div><span>Montant du contrat</span><b>${money(c.amount)}</b></div><div><span>Encaissé</span><b style="color:var(--good)">${money(ci.cashed)}</b></div>
+      <div><span>Reste à encaisser</span><b style="color:var(--brand)">${money(ci.rest)}</b></div><div><span>Charges</span><b style="color:var(--bad)">${money(ci.costs)}</b></div></div>
+      <div class="bar good"><i style="width:${ci.pct*100}%"></i></div>
+      <div class="ch"><span class="muted small">Bénéfice (encaissé − charges)</span><b class="num" style="font-size:20px;color:${ci.profit>=0?"var(--good)":"var(--bad)"}">${money(ci.profit)}</b></div>
+      <p class="small muted" style="margin:0">Marge ${Math.round(ci.margin*100)} % · bénéfice prévu à la fin : <b class="num">${money(c.amount-ci.costs)}</b></p>
+      <div class="btns"><button class="btn" data-act="contractTx" data-id="${esc(c.id)}" data-v="in">${ic("down")}Encaissement</button><button class="btn soft" data-act="contractTx" data-id="${esc(c.id)}" data-v="out">${ic("up")}Charge</button>
+      ${wa?`<a class="btn wa" href="${esc(wa)}" target="_blank" rel="noopener">${ic("chat")}Relancer le client</a>`:""}</div></section>
+    <section class="card"><div class="ch"><h2>Encaissements</h2><span class="num small muted">${ins.length}</span></div>${ins.length?`<div class="list">${ins.map(txRow).join("")}</div>`:`<p class="empty">Aucun paiement du client.</p>`}</section>
+    <section class="card"><div class="ch"><h2>Charges liées</h2><span class="num small muted">${outs.length}</span></div>${outs.length?`<div class="list">${outs.map(txRow).join("")}</div>`:`<p class="empty">Aucune charge.</p>`}</section>
+    <button class="btn ghost wide" data-act="toggleContract" data-id="${esc(c.id)}">${c.status==="terminé"?"Rouvrir le contrat":"Marquer comme terminé"}</button></div>`;
+};
+
+/* --- Plus --- */
+SCREENS.plus = () => {
+  const s = settings(), accs = list("account"), loans = list("loan"), gs = list("goal"), cs = list("contact");
+  const tile = (v,icon,t,sub) => `<button class="tile" data-act="go" data-v="${v}"><span class="ico">${ic(icon)}</span><b>${t}</b><span class="num">${sub}</span></button>`;
+  const totBank = accs.reduce((x,a)=>x+accBalance(a),0), rest = loans.reduce((x,l)=>x+loanInfo(l).remaining,0);
+  return rootHero("Plus", "", {right:""}) + `<div class="panel">
+    <button class="card" style="border:0;flex-direction:row;align-items:center;text-align:left" data-act="go" data-v="profil">${avatar(s.name||state.email||"Moi", state.photo, 56)}<div style="min-width:0;flex:1"><b style="font-size:16px;display:block">${esc(s.name||"Mon profil")}</b><span class="small muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${esc(state.email||"Photo, nom, code de verrouillage")}</span></div>${ic("chev")}</button>
+    <div class="tiles">${tile("banque","bank","Compte bancaire",accs.length?money(totBank):"Ajouter un compte")}${tile("prets","loan","Prêt bancaire",loans.length?money(rest)+" restants":"Suivre un prêt")}
+    ${tile("dime","church","Dîme",s.tithePct+" % du bénéfice")}${tile("contacts","users","Contacts",cs.length+" contact"+(cs.length>1?"s":""))}
+    ${tile("budgets","target","Budgets","Plafonds du mois")}${tile("epargne","piggy","Épargne",gs.length+" objectif"+(gs.length>1?"s":""))}
+    ${tile("bilans","chart","Bilans","Graphiques du mois")}${tile("sync","swap","Synchronisation",cfg?(pendingCount()?pendingCount()+" en attente":"À jour"):"Non configurée")}</div></div>`;
+};
+
+/* --- Budgets / Épargne / Bilans --- */
+const STATUS = {ok:"Dans le budget", warn:"Attention", bad:"Dépassé"};
+const bStatus = (s,l) => s/l>1 ? "bad" : s/l>=.8 ? "warn" : "ok";
+SCREENS.budgets = () => {
+  const bud = {}; list("budget", b => b.space===state.space && b.limit>0).forEach(b => bud[b.cat]=b);
+  const spent = {}; txs(t => t.space===state.space && t.type==="out" && t.date.startsWith(state.month)).forEach(t => spent[t.cat]=(spent[t.cat]||0)+t.amount);
+  const cats = catList(state.space,"out"), withB = cats.filter(c=>bud[c[0]]), without = cats.filter(c=>!bud[c[0]]);
+  return `<header class="hero subhero"><div class="hrow"><button class="iconbtn" data-act="back" aria-label="Retour">${ic("back")}</button>${spaceSeg()}</div><div><h1>Budgets</h1>${monthNav()}</div></header><div class="panel">
+    <section class="card">${withB.length ? withB.map(([k,n]) => { const s = spent[k]||0, l = bud[k].limit, st = bStatus(s,l);
+      return `<div style="display:flex;flex-direction:column;gap:7px"><div class="ch"><b>${esc(n)}</b><span class="pill ${st==="ok"?"ok":st}">${STATUS[st]}</span></div><div class="bar ${st==="ok"?"":st}"><i style="width:${Math.min(100,s/l*100)}%"></i></div>
+      <div class="ch small muted num"><span>${money(s)} sur ${money(l)}</span><button class="link" data-act="budget" data-v="${k}">Modifier</button></div></div>`; }).join("") : `<p class="empty">Aucun plafond défini.</p>`}</section>
+    ${without.length?`<section class="card"><h2>Sans plafond</h2><div class="chips">${without.map(([k,n])=>`<button class="chip" data-act="budget" data-v="${k}">${esc(n)}${spent[k]?` · <span class="num">${fmt(spent[k])}</span>`:""}</button>`).join("")}</div></section>`:""}</div>`;
+};
+SCREENS.epargne = () => {
+  const gs = list("goal", g => g.space===state.space);
+  return `<header class="hero subhero"><div class="hrow"><button class="iconbtn" data-act="back" aria-label="Retour">${ic("back")}</button>${spaceSeg()}</div><div><h1>Épargne</h1><p>Objectifs ${esc(SPACE_NAME[state.space])}</p></div></header><div class="panel">
+  ${gs.map(g => { const p = Math.min(1,g.saved/g.target); return `<section class="card"><div class="ch"><h2>${esc(g.name)}</h2><span class="pill ${p>=1?"ok":"gold"}">${p>=1?"Atteint":Math.round(p*100)+" %"}</span></div>
+    <div class="ch num"><b style="font-size:22px">${money(g.saved)}</b><span class="muted small">sur ${money(g.target)}</span></div><div class="bar gold"><i style="width:${p*100}%"></i></div>
+    <p class="small muted num" style="margin:0">${p>=1?"Objectif atteint.":"Reste "+money(g.target-g.saved)}${g.deadline?" · échéance "+esc(dateTxt(g.deadline)):""}</p>
+    <div class="btns"><button class="btn" data-act="goalAdd" data-id="${esc(g.id)}">${ic("plus")}Versement</button><button class="btn ghost" data-act="goal" data-id="${esc(g.id)}">Modifier</button></div></section>`; }).join("") || `<p class="empty">Aucun objectif.</p>`}
+  <button class="btn wide" data-act="goal" data-id="new">${ic("plus")}Nouvel objectif</button></div>`;
+};
+SCREENS.bilans = () => {
+  const mtx = txs(t => t.space===state.space && t.date.startsWith(state.month)), spent = {};
+  mtx.filter(t=>t.type==="out").forEach(t => spent[t.cat]=(spent[t.cat]||0)+t.amount);
+  return `<header class="hero subhero"><div class="hrow"><button class="iconbtn" data-act="back" aria-label="Retour">${ic("back")}</button>${spaceSeg()}</div><div><h1>Bilans</h1>${monthNav()}</div></header><div class="panel">
+    <section class="card"><h2>Où part l'argent</h2>${donut(spent)}</section><section class="card"><h2>6 derniers mois</h2>${bars()}</section></div>`;
+};
+function donut(spent){
+  const e = Object.entries(spent).sort((a,b)=>b[1]-a[1]), total = e.reduce((s,x)=>s+x[1],0);
+  if (!total) return `<p class="empty">Aucune dépense ce mois-ci.</p>`;
+  const R = 50, C = 2*Math.PI*R; let off = 0;
+  const arcs = e.map(([k,v]) => { const len = v/total*C; const s = `<circle cx="65" cy="65" r="${R}" fill="none" stroke="${catColor(state.space,"out",k)}" stroke-width="20" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 65 65)"/>`; off += len; return s; }).join("");
+  return `<div class="donutwrap"><svg viewBox="0 0 130 130" width="130" height="130" role="img" aria-label="Répartition des dépenses"><circle cx="65" cy="65" r="${R}" fill="none" stroke="var(--sunk)" stroke-width="20"/>${arcs}
+    <text x="65" y="62" text-anchor="middle" style="fill:var(--muted);font-size:11px;font-family:var(--font)">Total</text><text x="65" y="80" text-anchor="middle" style="fill:var(--ink);font-size:15px;font-weight:800;font-family:var(--font)">${fmt(total/1000)}k</text></svg>
+    <ul class="legend">${e.map(([k,v])=>`<li><i class="dot" style="background:${catColor(state.space,"out",k)}"></i><span>${esc(catName(state.space,"out",k))}</span><span class="num">${fmt(v)} <span class="muted small">${Math.round(v/total*100)}%</span></span></li>`).join("")}</ul></div>`;
+}
+function niceStep(x){ const p = Math.pow(10, Math.floor(Math.log10(x||1))), n = x/p; return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p; }
+function bars(){
+  const months = []; for (let i=5;i>=0;i--) months.push(shiftYM(state.month,-i));
+  const data = months.map(m => totals(txs(t => t.space===state.space && t.date.startsWith(m))));
+  const maxV = Math.max(1, ...data.map(d=>Math.max(d.in,d.out))), step = niceStep(maxV/3), topV = Math.ceil(maxV/step)*step;
+  const W=340,H=170,L=40,B=24,T=8,ch=H-B-T,gw=(W-L)/6,bw=Math.min(15,gw/3.3), y = v => T+ch-v/topV*ch;
+  let g = "";
+  for (let v=0; v<=topV+1; v+=step) g += `<line x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${v>=1e6?(v/1e6).toLocaleString("fr-FR")+"M":fmt(v/1000)+"k"}</text>`;
+  data.forEach((d,i) => { const cx = L+gw*i+gw/2, cur = months[i]===state.month;
+    g += `<rect x="${cx-bw-1.5}" y="${y(d.in)}" width="${bw}" height="${Math.max(0,T+ch-y(d.in))}" rx="4" fill="var(--c3)" opacity="${cur?1:.7}"/><rect x="${cx+1.5}" y="${y(d.out)}" width="${bw}" height="${Math.max(0,T+ch-y(d.out))}" rx="4" fill="var(--c1)" opacity="${cur?1:.7}"/>
+    <text x="${cx}" y="${H-6}" text-anchor="middle" style="${cur?"fill:var(--ink);font-weight:800":""}">${esc(monthName(months[i],{month:"short"}).replace(".",""))}</text>`; });
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Revenus et dépenses sur six mois">${g}</svg></div><div class="chips small muted" style="gap:14px"><span><i class="dot" style="background:var(--c3)"></i> Revenus</span><span><i class="dot" style="background:var(--c1)"></i> Dépenses</span></div>`;
+}
+
+/* --- Banque --- */
+SCREENS.banque = (scr) => {
+  const accs = list("account");
+  if (scr.id) { state.acc = scr.id; delete scr.id; }
+  const a = accs.find(x=>x.id===state.acc) || accs[0];
+  const s = settings();
+  let h = subHero("Compte bancaire", accs.length ? `Solde total <b class="num">${money(accs.reduce((x,y)=>x+accBalance(y),0))}</b>` : "Suis le solde et les mouvements de ton compte") + `<div class="panel">${sampleBanner()}
+    <div class="cards">${accs.map(x=>`<button class="bcard" data-act="selAcc" data-id="${esc(x.id)}" aria-pressed="${a && x.id===a.id}"><div class="bk"><span>${esc(x.bank)}</span>${ic("bank")}</div>
+      <div><div style="font-size:11px;opacity:.75;letter-spacing:.08em;text-transform:uppercase">Solde</div><div class="num" style="font-size:24px;font-weight:800">${money(accBalance(x))}</div></div>
+      <div class="no num">•••• •••• ${esc(x.last4||"····")}</div>
+      <div class="ft"><span>Titulaire<b>${esc(s.name||"Moi")}</b></span><span>Compte<b>${esc(x.name||"Courant")}</b></span></div></button>`).join("")}
+      <button class="bcard add" data-act="account" data-id="new">${ic("plus")}Ajouter un compte</button></div>`;
+  if (a) {
+    const mv = [...list("bankmv", m=>m.accountId===a.id).map(m=>({...m, src:"mv"})), ...txs(t=>t.accountId===a.id && t.date>=a.openingDate).map(t=>({...t, src:"tx"}))].sort((x,y)=>y.date.localeCompare(x.date));
+    const mIn = mv.filter(m=>m.date.startsWith(ymOf(NOW))).reduce((s,m)=> s + ((m.src==="tx"?m.type==="in":m.type!=="ret") ? Math.abs(m.amount):0),0);
+    const mOut = mv.filter(m=>m.date.startsWith(ymOf(NOW))).reduce((s,m)=> s + ((m.src==="tx"?m.type==="out":m.type==="ret") ? Math.abs(m.amount):0),0);
+    h += `<div class="btns"><button class="btn" data-act="bankmv" data-v="dep">${ic("down")}Dépôt</button><button class="btn soft" data-act="bankmv" data-v="ret">${ic("up")}Retrait</button><button class="btn ghost" data-act="bankmv" data-v="adj">${ic("swap")}Ajuster au relevé</button></div>
+    <div class="kv num"><div><span>Entrées ce mois</span><b style="color:var(--good)">${money(mIn)}</b></div><div><span>Sorties ce mois</span><b>${money(mOut)}</b></div></div>
+    <section class="card"><div class="ch"><h2>Mouvements</h2><button class="link" data-act="account" data-id="${esc(a.id)}">Modifier le compte</button></div>
+    ${mv.length ? `<div class="list">${mv.slice(0,40).map(m => m.src==="tx" ? txRow(m) : `<button class="row" data-act="delMv" data-id="${esc(m.id)}"><span class="ico" style="color:var(--brand)">${ic(m.type==="ret"?"up":m.type==="dep"?"down":"swap")}</span><span class="t"><b>${esc(m.note|| {dep:"Dépôt",ret:"Retrait",adj:"Ajustement au relevé"}[m.type])}</b><span>${{dep:"Dépôt",ret:"Retrait",adj:"Ajustement"}[m.type]} · ${esc(dateTxt(m.date))}</span></span><span class="a num"><span style="font-size:14.5px;font-weight:700;color:${m.type==="ret"||m.amount<0?"var(--ink)":"var(--good)"}">${m.type==="ret"||m.amount<0?"−":"+"} ${money(Math.abs(m.amount))}</span></span></button>`).join("")}</div>` : `<p class="empty">Aucun mouvement depuis l'ouverture du suivi.</p>`}
+    <p class="small muted" style="margin:0">Le solde part de ${money(a.openingBalance)} au ${esc(dateTxt(a.openingDate))}, puis ajoute les dépôts, retraits et toutes les opérations payées par ce compte.</p></section>`;
+  }
+  return h + `</div>`;
+};
+
+/* --- Prêts --- */
+SCREENS.prets = () => {
+  const ls = list("loan");
+  return subHero("Prêt bancaire", "Échéancier, capital restant et prochaines mensualités") + `<div class="panel">${sampleBanner()}
+  ${ls.map(l => { const li = loanInfo(l); return `<button class="card" style="border:0;text-align:left" data-act="go" data-v="loan" data-id="${esc(l.id)}"><div class="ch"><div><b style="font-size:15.5px;display:block">${esc(l.label)}</b><span class="small muted">${esc(l.bank)}</span></div><span class="pill ${li.k>=l.months?"ok":li.next&&li.next.date<TODAY?"bad":"info"}">${li.k>=l.months?"Remboursé":li.k+"/"+l.months}</span></div>
+    <div class="bar"><i style="width:${li.k/l.months*100}%"></i></div>
+    <div class="kv num"><div><span>Capital restant</span><b>${money(li.remaining)}</b></div><div><span>${li.next?"Prochaine échéance":"Statut"}</span><b>${li.next?esc(dateTxt(li.next.date,{day:"numeric",month:"short"}))+" · "+fmt(li.monthly):"Soldé"}</b></div></div></button>`; }).join("") || `<p class="empty">Aucun prêt suivi.</p>`}
+  <button class="btn wide" data-act="loan" data-id="new">${ic("plus")}Ajouter un prêt</button></div>`;
+};
+SCREENS.loan = (scr) => {
+  const l = get(scr.id); if (!l) { state.stack.pop(); return SCREENS[top().s](top()); }
+  const li = loanInfo(l);
+  return subHero(l.label, `${esc(l.bank)} · ${l.rate} % par an · ${l.months} mois`, {right:`<button class="iconbtn" data-act="loan" data-id="${esc(l.id)}" aria-label="Modifier">${ic("edit")}</button>`}) + `<div class="panel">
+    <section class="card"><div class="kv num"><div><span>Capital emprunté</span><b>${money(l.principal)}</b></div><div><span>Mensualité</span><b>${money(li.monthly)}</b></div>
+    <div><span>Capital restant</span><b style="color:var(--brand)">${money(li.remaining)}</b></div><div><span>Déjà payé</span><b style="color:var(--good)">${money(li.paid)}</b></div></div>
+    <div class="bar"><i style="width:${li.k/l.months*100}%"></i></div>
+    <p class="small muted num" style="margin:0">${li.k} échéance${li.k>1?"s":""} payée${li.k>1?"s":""} sur ${l.months} · coût total du crédit ${money(li.total-l.principal)}</p>
+    ${li.next?`<button class="btn" data-act="loanPay" data-id="${esc(l.id)}">${ic("check")}Payer l'échéance ${li.next.i} · ${esc(dateTxt(li.next.date,{day:"numeric",month:"short"}))}</button>`:`<span class="pill ok">Prêt entièrement remboursé</span>`}</section>
+    <section class="card"><h2>Échéancier</h2><div class="tablewrap"><table class="num"><thead><tr><th>N°</th><th>Date</th><th>Mensualité</th><th>Intérêts</th><th>Capital</th><th>Restant</th></tr></thead><tbody>
+    ${li.rows.map(r=>`<tr class="${r.i<=li.k?"paid":""}"><td>${r.i<=li.k?"✓ ":""}${r.i}</td><td>${esc(dateTxt(r.date,{day:"2-digit",month:"2-digit",year:"2-digit"}))}</td><td>${fmt(r.pay)}</td><td>${fmt(r.int)}</td><td>${fmt(r.pr)}</td><td>${fmt(r.bal)}</td></tr>`).join("")}</tbody></table></div>
+    <p class="small muted" style="margin:0">Calcul à taux fixe. Si ta banque t'a donné une mensualité différente, saisis-la dans « Modifier ».</p></section></div>`;
+};
+
+/* --- Dîme --- */
+SCREENS.dime = () => {
+  const s = settings(); const rows = []; for (let i=0;i<12;i++){ const ym = shiftYM(ymOf(NOW),-i); rows.push({ym, ...titheCalc(ym)}); }
+  const totDue = rows.slice(1).reduce((x,r)=>x+r.rest,0);
+  return subHero("Dîme", `${s.tithePct} % du bénéfice de chaque mois (revenus − dépenses, ${s.titheBase==="global"?"perso + Lambano":s.titheBase==="pro"?"Lambano seulement":"perso seulement"})`, {right:`<button class="iconbtn" data-act="titheSettings" aria-label="Réglages">${ic("settings")}</button>`}) + `<div class="panel">
+    ${totDue>0?`<div class="banner"><b>${money(totDue)}</b> restent à donner sur les mois clôturés.</div>`:""}
+    <section class="card"><div class="list">${rows.map((r,i) => `<div class="row" style="grid-template-columns:1fr auto"><span class="t"><b style="text-transform:capitalize">${esc(monthName(r.ym))}${i===0?" · en cours":""}</b><span class="num">Bénéfice ${money(r.profit)} · dû ${money(r.due)} · donné ${money(r.paid)}</span></span>
+      <span class="a">${i===0?`<span class="pill info">Estimation</span>`:r.rest>0?`<button class="btn soft" style="padding:8px 12px" data-act="payTithe" data-v="${r.ym}">Donner ${fmt(r.rest)}</button>`:`<span class="pill ok">${r.due?"Donnée":"Rien à donner"}</span>`}</span></div>`).join("")}</div></section>
+    <p class="small muted" style="margin:0 4px">Le versement de la dîme est enregistré comme une dépense « Dîme » et n'entre pas dans le calcul du bénéfice.</p></div>`;
+};
+
+/* --- Contacts --- */
+SCREENS.contacts = () => {
+  const q = state.q.toLowerCase(), cs = contactsReal().filter(c => !q || c.name.toLowerCase().includes(q) || String(c.phone||"").includes(q));
+  return subHero("Contacts", "Personnes à régler ou à encaisser") + `<div class="panel">
+    <div class="btns"><button class="btn" data-act="importContacts">${ic("google")}Importer mes contacts Google</button><button class="btn soft" data-act="contact" data-id="new">${ic("plus")}Ajouter</button></div>
+    <div class="field"><input id="q" type="search" placeholder="Rechercher un nom ou un numéro" value="${esc(state.q)}" aria-label="Rechercher"></div>
+    <section class="card">${cs.length?`<div class="list">${cs.map(c => { const owed = list("debt",d=>d.contactId===c.id).map(d=>({...d,...debtInfo(d)})); const plus = owed.filter(d=>d.direction==="owed").reduce((s,d)=>s+d.rest,0), minus = owed.filter(d=>d.direction==="owe").reduce((s,d)=>s+d.rest,0);
+      return `<button class="row" data-act="go" data-v="contact" data-id="${esc(c.id)}">${avatar(c.name,c.photo,44)}<span class="t"><b>${esc(c.name)}</b><span>${esc(c.phone||c.email||"")}</span></span><span class="a num">${plus?`<span style="color:var(--good);font-size:13.5px;font-weight:700">+${fmt(plus)}</span>`:""}${minus?`<span style="color:var(--bad);font-size:13.5px;font-weight:700">−${fmt(minus)}</span>`:""}</span></button>`; }).join("")}</div>`
+      : `<p class="empty">${usingSamples()||!state.docs.size?"Importe tes contacts Google ou ajoute une personne.":"Aucun contact trouvé."}</p>`}</section></div>`;
+};
+SCREENS.contact = (scr) => {
+  const c = get(scr.id); if (!c) { state.stack.pop(); return SCREENS[top().s](top()); }
+  const ds = list("debt", d=>d.contactId===c.id).map(d=>({...d,...debtInfo(d)})), ks = list("contract", k=>k.clientId===c.id), ts = txs(t=>t.contactId===c.id && !t.contractId);
+  return `<header class="hero subhero"><div class="hrow"><button class="iconbtn" data-act="back" aria-label="Retour">${ic("back")}</button><button class="iconbtn" data-act="contact" data-id="${esc(c.id)}" aria-label="Modifier">${ic("edit")}</button></div>
+    <div style="display:flex;gap:14px;align-items:center">${avatar(c.name,c.photo,64)}<div style="min-width:0"><h1>${esc(c.name)}</h1><p class="num">${esc([c.phone,c.email].filter(Boolean).join(" · "))}</p></div></div></header><div class="panel">
+    <div class="btns"><button class="btn" data-act="newDebt" data-id="${esc(c.id)}">${ic("book")}Dette / créance</button>${c.phone?`<a class="btn wa" href="${esc(waLink(c.phone,"Bonjour "+c.name.split(" ")[0]+", "))}" target="_blank" rel="noopener">${ic("chat")}WhatsApp</a>`:""}</div>
+    ${c.phone?`<p class="small muted" style="margin:0 4px">Numéro : <span class="num" style="user-select:all">${esc(c.phone)}</span></p>`:""}
+    <section class="card"><h2>Registre</h2>${ds.length?`<div class="list">${ds.map(debtRow).join("")}</div>`:`<p class="empty">Aucune dette ni créance.</p>`}</section>
+    ${ks.length?`<section class="card"><h2>Contrats</h2><div class="list">${ks.map(k=>{const ki=contractInfo(k); return `<button class="row" data-act="go" data-v="contract" data-id="${esc(k.id)}"><span class="ico" style="color:var(--brand)">${ic("contract")}</span><span class="t"><b>${esc(k.title)}</b><span class="num">Reste ${money(ki.rest)}</span></span><span class="a num">${money(k.amount)}</span></button>`;}).join("")}</div></section>`:""}
+    ${ts.length?`<section class="card"><h2>Opérations</h2><div class="list">${ts.slice(0,20).map(txRow).join("")}</div></section>`:""}</div>`;
+};
+
+/* --- Profil --- */
+SCREENS.profil = () => {
+  const s = settings();
+  return subHero("Profil & réglages", "") + `<div class="panel">
+    <div class="profilehead">${avatar(s.name||state.email||"Moi", state.photo, 96)}
+      <label class="btn soft" style="cursor:pointer">${ic("camera")}Changer la photo<input id="photoIn" type="file" accept="image/*" hidden></label>
+      <div><b style="font-size:18px;display:block">${esc(s.name||"Ton nom")}</b><span class="small muted">${esc(state.email || (cfg ? "" : "Compte Google non connecté"))}</span></div></div>
+    <section class="card"><h2>Compte</h2>
+      <div class="field"><label for="pName">Nom affiché</label><input id="pName" value="${esc(s.name)}" placeholder="Ex. : Frédéric ETSINYO" maxlength="60"></div>
+      <button class="btn" data-act="saveName">Enregistrer le nom</button>
+      <p class="small muted" style="margin:0">${cfg?"Tes données sont sauvegardées dans ton Google Sheets, protégé par ta clé secrète.":"Connecte ton Google Sheets dans Synchronisation pour sauvegarder tes données."}</p></section>
+    <button class="card" style="border:0;text-align:left" data-act="go" data-v="sync"><div class="ch"><h2>Synchronisation</h2>${ic("chev")}</div>${syncChip("syncline")}</button>
+    <section class="card"><h2>Sécurité</h2>
+      <div class="toggle"><div><b>Code de verrouillage</b><span>${s.lockHash?"Activé : un code à 4 chiffres est demandé à l'ouverture":"Demander un code à 4 chiffres à l'ouverture"}</span></div><input type="checkbox" class="sw" id="swLock" ${s.lockHash?"checked":""} aria-label="Code de verrouillage"></div></section>
+    <section class="card"><h2>Rappels</h2>
+      <div class="toggle"><div><b>Rappels par e-mail</b><span>Chaque matin à 7 h : remboursements, prêt, dîme</span></div><input type="checkbox" class="sw" id="swMail" ${s.remindEmail?"checked":""} ${cfg?"":"disabled"} aria-label="Rappels par e-mail"></div>
+      <div class="field"><label for="remDays">Prévenir combien de jours avant ?</label><select id="remDays">${[1,2,3,5,7].map(n=>`<option value="${n}" ${s.remindDays==n?"selected":""}>${n} jour${n>1?"s":""}</option>`).join("")}</select></div></section>
+    <section class="card"><h2>Dîme</h2><button class="btn ghost" data-act="titheSettings">${ic("church")}${s.tithePct} % · base ${s.titheBase==="global"?"perso + Lambano":s.titheBase==="pro"?"Lambano":"perso"}</button></section>
+    ${state.sheetUrl?`<section class="card"><h2>Mes données</h2><a class="btn ghost" href="${esc(state.sheetUrl)}" target="_blank" rel="noopener">${ic("sheet")}Ouvrir mon tableur Google Sheets</a></section>`:""}</div>`;
+};
+
+/* --- Synchronisation --- */
+SCREENS.sync = () => {
+  const st = syncStatus(), n = pendingCount();
+  if (!cfg) return subHero("Synchronisation", "Relie l'appli à ton Google Sheets") + `<div class="panel">
+    <section class="card"><h2>Connexion au serveur</h2>
+      <p class="small muted" style="margin:0">Colle les deux informations affichées après l'installation du script Apps Script (fonction « installer »).</p>
+      <div class="field"><label for="cfgUrl">Adresse de l'application Web</label><input id="cfgUrl" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
+      <div class="field"><label for="cfgKey">Clé secrète</label><input id="cfgKey" type="text" placeholder="mf-…" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+      <p class="err" id="cfgErr" hidden></p>
+      <button class="btn wide" data-act="connect">Connecter et synchroniser</button></section>
+    <section class="card"><h2>Comment ça marche</h2><p class="small muted" style="margin:0">Tout ce que tu saisis est gardé sur ce téléphone, même sans réseau. Dès que la connexion revient, les modifications partent dans ton tableur et celles faites sur tes autres appareils arrivent ici.</p></section></div>`;
+  return subHero("Synchronisation", esc(cfg.email || "Google Sheets connecté")) + `<div class="panel">
+    <section class="card">${syncChip("syncline")}
+      <div class="kv num"><div><span>Dernière synchro</span><b>${esc(ago(meta.lastSync))}</b></div><div><span>En attente d'envoi</span><b>${n}</b></div></div>
+      ${syncErr ? `<p class="err">${esc(syncErr)}</p>` : ""}
+      <button class="btn wide" data-act="syncNow">${ic("swap")}Synchroniser maintenant</button>
+      ${state.sheetUrl ? `<a class="btn ghost wide" href="${esc(state.sheetUrl)}" target="_blank" rel="noopener">${ic("sheet")}Ouvrir mon tableur</a>` : ""}</section>
+    <section class="card"><h2>Ce téléphone</h2><p class="small muted" style="margin:0">Le déconnecter garde ses données mais arrête la synchronisation.${n ? ` <b style="color:var(--bad)">${n} modification${n>1?"s":""} pas encore envoyée${n>1?"s":""} seraient perdues pour le tableur.</b>` : ""}</p>
+      <button class="btn danger" data-act="disconnect">Déconnecter ce téléphone</button></section></div>`;
+};
+async function connect(){
+  const url = $("#cfgUrl").value.trim(), key = $("#cfgKey").value.trim(), err = $("#cfgErr");
+  const fail = m => { err.textContent = m; err.hidden = false; };
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) return fail("L'adresse doit ressembler à https://script.google.com/macros/s/…/exec");
+  if (key.length < 16) return fail("Colle la clé secrète complète.");
+  if (!navigator.onLine) return fail("Il faut une connexion internet pour la première connexion.");
+  const btn = document.querySelector('[data-act="connect"]'); btn.disabled = true; btn.textContent = "Connexion…";
+  const old = cfg; cfg = {url, key};
+  try { const r = await api("ping"); cfg.email = r.email; cfg.sheetUrl = r.sheetUrl; ls.set(K.cfg, cfg); state.email = r.email || ""; state.sheetUrl = r.sheetUrl || "";
+    if (!usingSamples()) [...state.docs].forEach(([id, d]) => { if (!outbox[id]) outbox[id] = {id, kind:d.kind, data:d, readable:readable(id, d), _u:d._u || 1}; });
+    persistAll(); toast("Connecté à " + (r.email || "ton Google Sheets")); render(); sync(); }
+  catch(e){ cfg = old; btn.disabled = false; btn.textContent = "Connecter et synchroniser"; fail(e.name === "AbortError" ? "Le serveur ne répond pas. Réessaie." : e.message === "Failed to fetch" ? "Serveur injoignable : vérifie l'adresse et que l'accès est « Tout le monde »." : e.message); }
+}
+
+/* ================= Forms ================= */
+function openSheet(html, mount){
+  $("#sheetRoot").innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;
+  $("#scrim").addEventListener("click", e => { if (e.target.id==="scrim" || e.target.closest("[data-close]")) closeSheet(); });
+  const sh = $("#sheetRoot .sheet"); mount && mount(sh);
+}
+function closeSheet(){ $("#sheetRoot").innerHTML = ""; }
+document.addEventListener("keydown", e => { if (e.key==="Escape") closeSheet(); });
+const parseAmt = v => Number(String(v).replace(/[^\d-]/g,"")) || 0;
+
+/* fields: {id,label,type:amount|text|date|select|seg|contact|tel|email|number, options(arr|fn), value, required, show(vals)} */
+function form({title, intro, fields, submit="Enregistrer", onSubmit, danger}){
+  const optHtml = (f, vals) => { const o = typeof f.options==="function" ? f.options(vals) : f.options; return o.map(([v,l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join(""); };
+  const fieldHtml = f => {
+    const lab = `<label for="ff-${f.id}">${esc(f.label)}</label>`;
+    if (f.type==="seg") return `<div class="field" data-f="${f.id}">${f.label?`<label>${esc(f.label)}</label>`:""}<div class="segf" id="ff-${f.id}">${f.options.map(([v,l])=>`<button type="button" data-seg="${esc(v)}">${esc(l)}</button>`).join("")}</div></div>`;
+    if (f.type==="select") return `<div class="field" data-f="${f.id}">${lab}<select id="ff-${f.id}"></select></div>`;
+    if (f.type==="contact") return `<div class="field" data-f="${f.id}">${lab}<select id="ff-${f.id}"><option value="">${f.optional?"— Aucun —":"Choisir…"}</option>${contactsReal().map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("")}<option value="__new">+ Nouveau contact…</option></select><input id="ff-${f.id}-new" placeholder="Nom du nouveau contact" hidden maxlength="60"></div>`;
+    const type = f.type==="amount"||f.type==="number" ? "text" : f.type;
+    return `<div class="field" data-f="${f.id}">${lab}<input id="ff-${f.id}" type="${type}" ${f.type==="amount"?'class="amount num" inputmode="numeric" placeholder="0"':f.type==="number"?'inputmode="decimal" class="num"':""} ${f.placeholder?`placeholder="${esc(f.placeholder)}"`:""} ${f.max?`max="${f.max}"`:""} autocomplete="off"></div>`;
+  };
+  const rows = []; for (let i=0;i<fields.length;i++){ const f = fields[i]; if (f.half && fields[i+1] && fields[i+1].half) { rows.push(`<div class="two">${fieldHtml(f)}${fieldHtml(fields[i+1])}</div>`); i++; } else rows.push(fieldHtml(f)); }
+  openSheet(`<h3>${esc(title)}</h3>${intro?`<p class="small muted" style="margin:0">${intro}</p>`:""}${rows.join("")}<p class="err" hidden></p><button class="btn wide" data-submit>${esc(submit)}</button>${danger?`<button class="btn danger wide" data-danger>${esc(danger.label)}</button>`:""}`, sh => {
+    const vals = {}; fields.forEach(f => vals[f.id] = f.value ?? (f.type==="seg" ? f.options[0][0] : ""));
+    const el = id => sh.querySelector("#ff-"+id);
+    const sync = () => {
+      fields.forEach(f => {
+        const wrap = sh.querySelector(`[data-f="${f.id}"]`);
+        if (f.show) wrap.hidden = !f.show(vals);
+        if (f.type==="select") { const s = el(f.id), html = optHtml(f, vals); if (s.dataset.h !== html) { s.innerHTML = html; s.dataset.h = html; const o = [...s.options].map(x=>x.value); if (!o.includes(String(vals[f.id]))) vals[f.id] = o[0] ?? ""; s.value = vals[f.id]; } }
+        if (f.type==="seg") el(f.id).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.seg===String(vals[f.id])));
+        if (f.type==="contact") el(f.id+"-new").hidden = vals[f.id]!=="__new";
+      });
+    };
+    fields.forEach(f => {
+      const e = el(f.id);
+      if (f.type==="seg") e.addEventListener("click", ev => { const b = ev.target.closest("[data-seg]"); if (b) { vals[f.id] = b.dataset.seg; sync(); } });
+      else { if (f.type==="amount" && vals[f.id]!=="") e.value = fmt(vals[f.id]); else if (f.type!=="select") e.value = vals[f.id] ?? "";
+        if (f.type==="contact") vals[f.id] = e.value;
+        e.addEventListener("input", () => { if (f.type==="amount") { const n = parseAmt(e.value); e.value = n ? fmt(n) : ""; vals[f.id] = n; } else vals[f.id] = e.value; sync(); });
+        e.addEventListener("change", () => { vals[f.id] = f.type==="amount" ? parseAmt(e.value) : e.value; sync(); }); }
+    });
+    sync();
+    const first = sh.querySelector("input:not([hidden]),select"); if (first && first.type!=="date") setTimeout(()=>first.focus({preventScroll:true}), 60);
+    const err = sh.querySelector(".err");
+    sh.querySelector("[data-submit]").addEventListener("click", async () => {
+      fields.forEach(f => { if (f.type==="contact") vals[f.id+"_new"] = el(f.id+"-new").value.trim(); });
+      for (const f of fields) {
+        if (f.show && !f.show(vals)) continue;
+        const v = vals[f.id];
+        if (f.required && (f.type==="amount" ? !(v>0) : f.type==="contact" ? !(v && (v!=="__new" || vals[f.id+"_new"])) : !String(v||"").trim())) { err.textContent = f.msg || `Renseigne : ${f.label.toLowerCase()}.`; err.hidden = false; return; }
+      }
+      const r = await onSubmit(vals); if (r !== false) closeSheet();
+    });
+    if (danger) { const d = sh.querySelector("[data-danger]"); d.addEventListener("click", async () => { if (!d.dataset.armed) { d.dataset.armed = "1"; d.textContent = "Appuie encore pour confirmer"; return; } closeSheet(); await danger.onClick(); }); }
+  });
+}
+async function resolveContact(vals, key){
+  const v = vals[key]; if (v!=="__new") return v || null;
+  const name = vals[key+"_new"]; if (!name) return null;
+  const id = newId("ct"); await store.save(id, {kind:"contact", name}); return id;
+}
+
+/* --- Transaction form --- */
+function txForm(preset={}, existing){
+  const accs = list("account", null, state.docs);
+  const e = existing || {};
+  const space = e.space || preset.space || state.space;
+  const fields = [
+    {id:"type", type:"seg", options:[["out","Dépense"],["in","Revenu"]], value:e.type||preset.type||"out"},
+    {id:"space", type:"seg", label:"Espace", options:[["perso","Personnel"],["pro","Lambano Production"]], value:space},
+    {id:"amount", type:"amount", label:"Montant (F CFA)", value:e.amount ?? preset.amount ?? "", required:true, msg:"Saisis un montant supérieur à 0."},
+    {id:"cat", type:"select", label:"Catégorie", options:v => catList(v.space, v.type), value:e.cat||preset.cat||""},
+    {id:"date", type:"date", label:"Date", value:e.date||preset.date||(state.month===ymOf(NOW)?TODAY:state.month+"-01"), required:true, half:true},
+    {id:"method", type:"select", label:"Moyen", options:METHODS.map(m=>[m,m]), value:e.method||preset.method||"Espèces", half:true},
+    {id:"accountId", type:"select", label:"Compte bancaire", options:[["","— Aucun —"],...accs.map(a=>[a.id,a.bank+(a.last4?" ••"+a.last4:"")])], value:e.accountId||preset.accountId||(accs[0]?accs[0].id:""), show:v=>accs.length>0 && (v.method==="Banque"||v.method==="Carte")},
+    {id:"contactId", type:"contact", label:"Personne (facultatif)", optional:true, value:e.contactId||preset.contactId||""},
+    {id:"note", type:"text", label:"Libellé (facultatif)", value:e.note||preset.note||"", placeholder:"Ex. : courses au marché"}
+  ];
+  const title = existing ? "Modifier l'opération" : preset.title || "Nouvelle opération";
+  form({title, intro: preset.intro, fields, submit: existing ? "Enregistrer" : "Ajouter", onSubmit: async v => {
+    const contactId = await resolveContact(v,"contactId");
+    const doc = {kind:"tx", space:v.space, type:v.type, amount:v.amount, cat:v.cat, date:v.date, method:v.method, note:v.note.trim(), createdAt:e.createdAt||Date.now()};
+    if ((v.method==="Banque"||v.method==="Carte") && v.accountId) doc.accountId = v.accountId;
+    if (contactId) doc.contactId = contactId;
+    ["contractId","loanId","titheMonth","debtId"].forEach(k => { const x = e[k] ?? preset[k]; if (x) doc[k] = x; });
+    if (!existing && !v.date.startsWith(state.month) && top().s==="home") state.month = v.date.slice(0,7);
+    if (await store.save(existing ? existing.id : newId("tx"), doc)) toast(existing ? "Opération modifiée" : "Opération ajoutée");
+  }, danger: existing && realOnly(existing.id) ? {label:"Supprimer l'opération", onClick: async()=>{ if (await store.remove(existing.id)) toast("Opération supprimée"); }} : null});
+}
+
+/* --- Debt forms --- */
+function debtForm(existing, contactId){
+  const e = existing || {};
+  form({title: existing ? "Modifier" : "Nouvelle ligne au registre", fields:[
+    {id:"direction", type:"seg", options:[["owed","On me doit"],["owe","Je dois"]], value:e.direction||"owed"},
+    {id:"contactId", type:"contact", label:"Personne", value:e.contactId||contactId||"", required:true, msg:"Choisis ou crée la personne concernée."},
+    {id:"amount", type:"amount", label:"Montant total (F CFA)", value:e.amount??"", required:true, msg:"Saisis un montant supérieur à 0."},
+    {id:"label", type:"text", label:"Objet", value:e.label||"", placeholder:"Ex. : prêt pour la moto"},
+    {id:"date", type:"date", label:"Date", value:e.date||TODAY, half:true},
+    {id:"dueDate", type:"date", label:"Rappel / échéance", value:e.dueDate||"", half:true}
+  ], onSubmit: async v => {
+    const cid = await resolveContact(v,"contactId"); if (!cid) return false;
+    const doc = {kind:"debt", contactId:cid, direction:v.direction, amount:v.amount, label:v.label.trim(), date:v.date||TODAY, dueDate:v.dueDate||"", payments:e.payments||[]};
+    const id = existing ? existing.id : newId("debt");
+    if (await store.save(id, doc)) { toast(existing?"Ligne modifiée":"Ajouté au registre"); if (!existing) go({s:"debt", id}); }
+  }});
+}
+function debtPayForm(d){
+  const di = debtInfo(d), owe = d.direction==="owe";
+  form({title: owe ? "Paiement effectué" : "Paiement reçu", intro:`Reste ${money(di.rest)} sur ${money(d.amount)}.`, fields:[
+    {id:"amount", type:"amount", label:"Montant (F CFA)", value:di.rest, required:true},
+    {id:"date", type:"date", label:"Date", value:TODAY, half:true},
+    {id:"method", type:"select", label:"Moyen", options:METHODS.map(m=>[m,m]), value:"Espèces", half:true},
+    {id:"next", type:"date", label:"Prochain rappel (si pas soldé)", value:d.dueDate && d.dueDate>TODAY ? d.dueDate : ""},
+    {id:"record", type:"seg", label:"Compter aussi dans mes opérations ?", options:[["no","Non"],["yes","Oui"]], value:"no"},
+    {id:"note", type:"text", label:"Note (facultatif)", value:""}
+  ], submit:"Enregistrer le paiement", onSubmit: async v => {
+    const amt = Math.min(v.amount, di.rest);
+    const pays = [...(d.payments||[]), {id:newId("p"), amount:amt, date:v.date||TODAY, method:v.method, note:v.note.trim()}];
+    const {id, ...body} = d;
+    const ok = await store.save(id, {...body, payments:pays, dueDate: (di.rest-amt>0 && v.next) ? v.next : body.dueDate});
+    if (ok && v.record==="yes") await store.save(newId("tx"), {kind:"tx", space:"perso", type: owe?"out":"in", cat: owe?"autres":"remb_recu", amount:amt, date:v.date||TODAY, method:v.method, contactId:d.contactId, debtId:id, note:(owe?"Remboursement à ":"Remboursement de ")+contactName(d.contactId), createdAt:Date.now()});
+    if (ok) toast(di.rest-amt<=0 ? "Soldé ! Le compte est réglé." : `Paiement enregistré. Reste ${money(di.rest-amt)}.`);
+  }});
+}
+
+/* --- Other forms --- */
+function contractForm(existing){
+  const e = existing || {};
+  form({title: existing?"Modifier le contrat":"Nouveau contrat", fields:[
+    {id:"title", type:"text", label:"Intitulé", value:e.title||"", required:true, placeholder:"Ex. : couverture photo du gala"},
+    {id:"clientId", type:"contact", label:"Client", value:e.clientId||"", required:true, msg:"Choisis ou crée le client."},
+    {id:"amount", type:"amount", label:"Montant du contrat (F CFA)", value:e.amount??"", required:true},
+    {id:"startDate", type:"date", label:"Début", value:e.startDate||TODAY, half:true},
+    {id:"endDate", type:"date", label:"Solde attendu le", value:e.endDate||"", half:true}
+  ], onSubmit: async v => {
+    const cid = await resolveContact(v,"clientId"); if (!cid) return false;
+    const id = existing ? existing.id : newId("ctr");
+    if (await store.save(id, {kind:"contract", title:v.title.trim(), clientId:cid, amount:v.amount, startDate:v.startDate, endDate:v.endDate||"", status:e.status||"en cours"})) { toast("Contrat enregistré"); if (!existing) go({s:"contract", id}); }
+  }, danger: existing && realOnly(existing.id) ? {label:"Supprimer le contrat", onClick: async()=>{ if (await store.remove(existing.id)) { toast("Contrat supprimé"); back(); } }} : null});
+}
+function contactForm(existing){
+  const e = existing || {};
+  form({title: existing?"Modifier le contact":"Nouveau contact", fields:[
+    {id:"name", type:"text", label:"Nom", value:e.name||"", required:true},
+    {id:"phone", type:"tel", label:"Téléphone (WhatsApp)", value:e.phone||"", placeholder:"Ex. : 90 12 34 56"},
+    {id:"email", type:"email", label:"E-mail", value:e.email||""}
+  ], onSubmit: async v => {
+    const id = existing ? existing.id : newId("ct");
+    const {id:_, ...body} = e;
+    if (await store.save(id, {...body, kind:"contact", name:v.name.trim(), phone:v.phone.trim(), email:v.email.trim()})) toast("Contact enregistré");
+  }, danger: existing && realOnly(existing.id) ? {label:"Supprimer le contact", onClick: async()=>{ if (await store.remove(existing.id)) { toast("Contact supprimé"); back(); } }} : null});
+}
+function accountForm(existing){
+  const e = existing || {};
+  form({title: existing?"Modifier le compte":"Nouveau compte bancaire", intro:"Le solde de départ se trouve sur ton relevé ou ton application bancaire.", fields:[
+    {id:"bank", type:"text", label:"Banque", value:e.bank||"", required:true, placeholder:"Ex. : Orabank, Ecobank, BTCI…"},
+    {id:"name", type:"text", label:"Type de compte", value:e.name||"Compte courant", half:true},
+    {id:"last4", type:"text", label:"4 derniers chiffres", value:e.last4||"", half:true, placeholder:"1234"},
+    {id:"openingBalance", type:"amount", label:"Solde de départ (F CFA)", value:e.openingBalance??"", required:true, msg:"Saisis le solde actuel du compte."},
+    {id:"openingDate", type:"date", label:"À la date du", value:e.openingDate||TODAY, required:true}
+  ], onSubmit: async v => {
+    const id = existing ? existing.id : newId("acc");
+    if (await store.save(id, {kind:"account", bank:v.bank.trim(), name:v.name.trim(), last4:String(v.last4).replace(/\D/g,"").slice(-4), openingBalance:v.openingBalance, openingDate:v.openingDate})) { state.acc = id; toast("Compte enregistré"); }
+  }, danger: existing && realOnly(existing.id) ? {label:"Supprimer le compte", onClick: async()=>{ if (await store.remove(existing.id)) toast("Compte supprimé"); }} : null});
+}
+function bankmvForm(type){
+  const a = list("account").find(x=>x.id===state.acc) || list("account")[0]; if (!a) return;
+  if (!realOnly(a.id)) { toast("C'est un exemple. Ajoute ton propre compte pour commencer."); return; }
+  const bal = accBalance(a);
+  form({title: type==="dep"?"Dépôt":type==="ret"?"Retrait":"Ajuster au relevé", intro: type==="adj" ? `Solde calculé : ${money(bal)}. Saisis le solde exact de ton relevé : l'écart sera enregistré (frais, agios…).` : `${esc(a.bank)} · solde ${money(bal)}`, fields:[
+    {id:"amount", type:"amount", label: type==="adj" ? "Solde réel du relevé (F CFA)" : "Montant (F CFA)", value:"", required:true},
+    {id:"date", type:"date", label:"Date", value:TODAY},
+    {id:"note", type:"text", label:"Libellé (facultatif)", value: type==="adj" ? "Frais bancaires / agios" : ""}
+  ], onSubmit: async v => {
+    const amount = type==="adj" ? v.amount - bal : v.amount;
+    if (type==="adj" && !amount) { toast("Le solde est déjà juste."); return; }
+    if (await store.save(newId("mv"), {kind:"bankmv", accountId:a.id, type, amount, date:v.date||TODAY, note:v.note.trim()})) toast("Mouvement enregistré");
+  }});
+}
+function loanForm(existing){
+  const e = existing || {}, accs = list("account", null, state.docs);
+  form({title: existing?"Modifier le prêt":"Nouveau prêt bancaire", fields:[
+    {id:"label", type:"text", label:"Nom du prêt", value:e.label||"", required:true, placeholder:"Ex. : prêt équipement"},
+    {id:"bank", type:"text", label:"Banque", value:e.bank||"", required:true},
+    {id:"principal", type:"amount", label:"Capital emprunté (F CFA)", value:e.principal??"", required:true},
+    {id:"rate", type:"number", label:"Taux annuel (%)", value:e.rate??"", half:true, placeholder:"9"},
+    {id:"months", type:"number", label:"Durée (mois)", value:e.months??"", half:true, required:true, placeholder:"24"},
+    {id:"startDate", type:"date", label:"1re échéance", value:e.startDate||addMonths(TODAY,1), required:true},
+    {id:"monthly", type:"amount", label:"Mensualité de la banque (facultatif)", value:e.monthly??""},
+    {id:"accountId", type:"select", label:"Prélevé sur le compte", options:[["","— Aucun —"],...accs.map(a=>[a.id,a.bank])], value:e.accountId||"", show:()=>accs.length>0}
+  ], onSubmit: async v => {
+    const months = parseInt(v.months,10), rate = parseFloat(String(v.rate).replace(",","."))||0;
+    if (!(months>0)) { toast("Saisis une durée en mois."); return false; }
+    const id = existing ? existing.id : newId("loan");
+    const doc = {kind:"loan", label:v.label.trim(), bank:v.bank.trim(), principal:v.principal, rate, months, startDate:v.startDate}; if (v.monthly) doc.monthly = v.monthly; if (v.accountId) doc.accountId = v.accountId;
+    if (await store.save(id, doc)) { toast("Prêt enregistré · mensualité " + money(doc.monthly||pmt(doc.principal,rate,months))); if (!existing) go({s:"loan", id}); }
+  }, danger: existing && realOnly(existing.id) ? {label:"Supprimer le prêt", onClick: async()=>{ if (await store.remove(existing.id)) { toast("Prêt supprimé"); back(); } }} : null});
+}
+function budgetForm(cat){
+  const id = `budget_${state.space}_${cat}`, cur = get(id);
+  form({title:`Plafond · ${catName(state.space,"out",cat)}`, intro:`Montant maximum par mois (${esc(SPACE_NAME[state.space])}).`, fields:[{id:"limit", type:"amount", label:"Plafond mensuel (F CFA)", value:cur&&realOnly(id)?cur.limit:"", required:true}],
+    onSubmit: async v => { if (await store.save(id, {kind:"budget", space:state.space, cat, limit:v.limit})) toast("Plafond enregistré"); },
+    danger: cur && realOnly(id) ? {label:"Retirer le plafond", onClick: async()=>{ if (await store.remove(id)) toast("Plafond retiré"); }} : null});
+}
+function goalForm(id){
+  const g = id!=="new" ? get(id) : null;
+  form({title: g?"Modifier l'objectif":"Nouvel objectif", fields:[
+    {id:"name", type:"text", label:"Nom", value:g?g.name:"", required:true, placeholder:"Ex. : fonds d'urgence"},
+    {id:"target", type:"amount", label:"Cible (F CFA)", value:g?g.target:"", required:true, half:true},
+    {id:"saved", type:"amount", label:"Déjà épargné", value:g?g.saved:"", half:true},
+    {id:"deadline", type:"date", label:"Échéance (facultatif)", value:g&&g.deadline||""}
+  ], onSubmit: async v => { if (await store.save(g&&realOnly(g.id)?g.id:newId("goal"), {kind:"goal", space:g?g.space:state.space, name:v.name.trim(), target:v.target, saved:v.saved||0, deadline:v.deadline||null})) toast("Objectif enregistré"); },
+  danger: g && realOnly(g.id) ? {label:"Supprimer l'objectif", onClick: async()=>{ if (await store.remove(g.id)) toast("Objectif supprimé"); }} : null});
+}
+function titheSettingsForm(){
+  const s = settings();
+  form({title:"Réglages de la dîme", fields:[
+    {id:"pct", type:"number", label:"Pourcentage", value:s.tithePct},
+    {id:"base", type:"seg", label:"Bénéfice pris en compte", options:[["global","Perso + Lambano"],["pro","Lambano"],["perso","Perso"]], value:s.titheBase}
+  ], onSubmit: async v => { const pct = parseFloat(String(v.pct).replace(",",".")); if (!(pct>0 && pct<=100)) { toast("Saisis un pourcentage entre 1 et 100."); return false; }
+    if (await saveSettings({tithePct:pct, titheBase:v.base})) toast("Réglages enregistrés"); }});
+}
+async function saveSettings(patch){ const s = Object.assign({kind:"settings"}, state.docs.get("settings")||{}, patch); return store.save("settings", s); }
+
+function addMenu(){
+  const it = (act,icon,t,sub,v="") => `<button data-m="${act}" data-v="${v}"><span class="ico">${ic(icon)}</span><span><b>${t}</b><span>${sub}</span></span></button>`;
+  openSheet(`<h3>Ajouter</h3><div class="menu">${it("tx","up","Dépense","Une sortie d'argent","out")}${it("tx","down","Revenu","Une entrée d'argent","in")}${it("debt","book","Dette ou créance","Au registre, avec rappel")}
+    ${it("contract","contract","Contrat client","Suivi paiement, charges, bénéfice")}${it("bank","bank","Mouvement bancaire","Dépôt, retrait, ajustement")}${it("contact","user","Contact","Une personne à régler ou encaisser")}</div>`, sh => {
+    sh.querySelector(".menu").addEventListener("click", e => { const b = e.target.closest("[data-m]"); if (!b) return; closeSheet();
+      ({tx:()=>txForm({type:b.dataset.v}), debt:()=>debtForm(), contract:()=>contractForm(), bank:()=>{ if (list("account").length) { state.stack=[{s:"plus"},{s:"banque"}]; render(); bankmvForm("dep"); } else accountForm(); }, contact:()=>contactForm()})[b.dataset.m](); });
+  });
+}
+
+/* --- Google contacts import --- */
+async function importContacts(){
+  if (!cfg) { toast("Connecte d'abord ton Google Sheets (Plus → Synchronisation)."); return; }
+  if (!navigator.onLine) { toast("Il faut une connexion internet pour lire tes contacts Google."); return; }
+  toast("Lecture de tes contacts Google…");
+  let res; try { res = (await api("contacts")).contacts; } catch(e){
+    const m = String(e && e.message || e);
+    toast(m.includes("PEOPLE_API") ? "Active le service « People API » dans ton projet Apps Script (voir le guide)." : "Impossible de lire tes contacts. Réessaie."); return; }
+  const have = new Set(contactsReal().map(c=>c.googleId).filter(Boolean));
+  const fresh = res.filter(c => !have.has(c.googleId));
+  if (!fresh.length) { toast(res.length ? "Tous tes contacts sont déjà importés." : "Aucun contact trouvé dans ton compte Google."); return; }
+  openSheet(`<h3>Importer des contacts</h3><p class="small muted" style="margin:0">${fresh.length} contact${fresh.length>1?"s":""} Google. Coche les personnes à suivre.</p>
+    <div class="field"><input id="pq" type="search" placeholder="Rechercher" aria-label="Rechercher"></div>
+    <div class="pick">${fresh.map((c,i)=>`<label data-n="${esc((c.name+" "+(c.phone||"")).toLowerCase())}"><input type="checkbox" value="${i}">${avatar(c.name,c.photo,36)}<span style="min-width:0"><b style="display:block;font-size:14px">${esc(c.name)}</b><span class="small muted num">${esc(c.phone||c.email||"")}</span></span></label>`).join("")}</div>
+    <button class="btn wide" id="doImport">Importer la sélection</button>`, sh => {
+      sh.querySelector("#pq").addEventListener("input", e => { const q = e.target.value.toLowerCase(); sh.querySelectorAll(".pick label").forEach(l => l.hidden = q && !l.dataset.n.includes(q)); });
+      sh.querySelector("#doImport").addEventListener("click", async () => {
+        const sel = [...sh.querySelectorAll(".pick input:checked")].map(x => fresh[+x.value]); if (!sel.length) { toast("Coche au moins un contact."); return; }
+        closeSheet();
+        if (await store.saveMany(sel.map(c => [newId("ct"), {kind:"contact", name:c.name, phone:c.phone||"", email:c.email||"", photo:c.photo||"", googleId:c.googleId}]))) toast(`${sel.length} contact${sel.length>1?"s":""} importé${sel.length>1?"s":""}`);
+      });
+    });
+}
+
+/* --- Profile photo --- */
+function resizeImage(file, max=320){ return new Promise((res,rej) => { const r = new FileReader(); r.onerror = rej; r.onload = () => { const img = new Image(); img.onerror = rej; img.onload = () => {
+  const s = Math.min(1, max/Math.max(img.width,img.height)), side = Math.min(img.width,img.height), c = document.createElement("canvas"); c.width = c.height = Math.round(side*s);
+  c.getContext("2d").drawImage(img, (img.width-side)/2, (img.height-side)/2, side, side, 0, 0, c.width, c.height); res(c.toDataURL("image/jpeg", .85)); }; img.src = r.result; }; r.readAsDataURL(file); }); }
+async function setPhoto(file){
+  let data; try { data = await resizeImage(file); } catch(e){ toast("Cette image ne peut pas être lue. Essaie une photo JPG ou PNG."); return; }
+  state.photo = data; ls.set(K.photo, data); meta.photoPending = true; persistAll(); render(); scheduleSync();
+  toast(cfg && navigator.onLine ? "Photo mise à jour" : "Photo enregistrée sur ce téléphone");
+}
+
+/* --- Lock --- */
+async function sha(s){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("mf:"+s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+function keypad(title, onDone){
+  let code = "";
+  const draw = (msg) => { $("#lockRoot").innerHTML = `<div class="lock">${avatar(settings().name||"Moi", state.photo, 76)}<div style="text-align:center"><b style="font-size:18px">${esc(title)}</b>${msg?`<div style="margin-top:6px;opacity:.85">${esc(msg)}</div>`:""}</div>
+    <div class="pins">${[0,1,2,3].map(i=>`<i class="${i<code.length?"f":""}"></i>`).join("")}</div>
+    <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-k="${n}">${n}</button>`).join("")}<span></span><button data-k="0">0</button><button data-k="del" aria-label="Effacer">⌫</button></div></div>`; };
+  draw();
+  $("#lockRoot").onclick = async e => { const b = e.target.closest("[data-k]"); if (!b) return;
+    if (b.dataset.k==="del") code = code.slice(0,-1); else if (code.length<4) code += b.dataset.k;
+    draw(); if (code.length===4) { const c = code; code = ""; const r = await onDone(c); if (r) draw(r); } };
+}
+function showLock(){ keypad("Entre ton code", async c => { if (await sha(c) === settings().lockHash) { state.unlocked = true; $("#lockRoot").innerHTML = ""; $("#lockRoot").onclick = null; render(); return ""; } return "Code incorrect"; }); }
+function setupLock(){ let first = ""; keypad("Choisis un code à 4 chiffres", async c => {
+  if (!first) { first = c; return "Confirme le code"; }
+  if (c !== first) { first = ""; return "Les codes ne correspondent pas. Recommence."; }
+  $("#lockRoot").innerHTML = ""; $("#lockRoot").onclick = null; if (await saveSettings({lockHash: await sha(c)})) toast("Code activé"); return ""; }); }
+
+let toastT;
+function toast(msg){ let t = $(".toast"); if (!t) { t = document.createElement("div"); t.className = "toast"; t.setAttribute("role","status"); document.body.appendChild(t); } t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(()=>{ t.hidden = true; }, 3000); }
+
+/* ================= Events ================= */
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]"); if (!el || !$("#app").contains(el)) return;
+  const a = el.dataset.act, v = el.dataset.v, id = el.dataset.id;
+  const A = {
+    tab: () => tab(v), back, addMenu,
+    go: () => { if (v==="banque" && id) state.acc = id; go({s:v, id}); },
+    goto: () => go(JSON.parse(v)),
+    space: () => { state.space = v; saveUI(); render(); },
+    month: () => { const n = shiftYM(state.month, +v); if (n <= ymOf(NOW)) { state.month = n; render(); } },
+    filter: () => { state.filter = v; render(); },
+    debtFilter: () => { state.debtFilter = v; render(); },
+    newTx: () => txForm({type:v}),
+    editTx: () => { const t = get(id); if (t) txForm({}, t); },
+    newDebt: () => debtForm(null, id),
+    editDebt: () => { if (realOnly(id)) debtForm(get(id)); else toast("C'est un exemple."); },
+    debtPay: () => { const d = get(id); if (!realOnly(id)) { toast("C'est un exemple. Ajoute ta propre ligne au registre."); return; } debtPayForm(d); },
+    delPayment: async () => { const d = get(id); if (!d || !realOnly(id)) return; if (!el.dataset.armed) { el.dataset.armed="1"; el.textContent="Confirmer"; el.style.color="var(--bad)"; return; } const {id:_, ...body} = d; await store.save(id, {...body, payments:(d.payments||[]).filter(p=>p.id!==v)}); },
+    delDebt: async () => { if (!el.dataset.armed) { el.dataset.armed="1"; el.lastChild.textContent = "Appuie encore pour supprimer"; return; } if (await store.remove(id)) { toast("Ligne supprimée"); back(); } },
+    newContract: () => contractForm(),
+    editContract: () => { if (realOnly(id)) contractForm(get(id)); else toast("C'est un exemple."); },
+    contractTx: () => { const c = get(id); if (!realOnly(id)) { toast("C'est un exemple. Crée ton propre contrat."); return; }
+      txForm({type:v, space:"pro", contractId:c.id, contactId: v==="in" ? c.clientId : "", cat: v==="in" ? "event" : "prestataires", title: v==="in" ? "Encaissement client" : "Charge du contrat", intro: esc(c.title), note: v==="in" ? "Paiement " + c.title : ""}); },
+    toggleContract: async () => { const c = get(id); const {id:_, ...body} = c; if (await store.save(id, {...body, status: c.status==="terminé" ? "en cours" : "terminé"})) toast("Statut mis à jour"); },
+    payTithe: () => { const tc = titheCalc(v); txForm({type:"out", space:"perso", cat:"dime", amount:tc.rest, titheMonth:v, note:"Dîme " + monthName(v), date: TODAY, title:"Donner la dîme", intro:`${esc(monthName(v))} · ${settings().tithePct} % de ${money(Math.max(0,tc.profit))} de bénéfice`}); },
+    titheSettings: titheSettingsForm,
+    budget: () => budgetForm(v), goal: () => goalForm(id),
+    goalAdd: () => { const g = get(id); if (!realOnly(id)) { toast("C'est un exemple. Crée ton propre objectif."); return; }
+      form({title:"Versement · "+g.name, fields:[{id:"amount", type:"amount", label:"Montant (F CFA)", value:"", required:true}], submit:"Ajouter", onSubmit: async v2 => { const {id:_, ...body} = g; if (await store.save(id, {...body, saved:(g.saved||0)+v2.amount})) toast("Versement ajouté"); }}); },
+    selAcc: () => { state.acc = id; render(); },
+    account: () => { if (id==="new") accountForm(); else if (realOnly(id)) accountForm(get(id)); else toast("C'est un exemple."); },
+    bankmv: () => bankmvForm(v),
+    delMv: async () => { if (!realOnly(id)) { toast("C'est un exemple."); return; } if (!el.dataset.armed) { el.dataset.armed = "1"; toast("Appuie encore sur ce mouvement pour le supprimer."); setTimeout(()=>{ delete el.dataset.armed; }, 3000); return; } if (await store.remove(id)) toast("Mouvement supprimé"); },
+    loan: () => { if (id==="new") loanForm(); else if (realOnly(id)) loanForm(get(id)); else toast("C'est un exemple."); },
+    loanPay: () => { const l = get(id); if (!realOnly(id)) { toast("C'est un exemple. Ajoute ton propre prêt."); return; } const li = loanInfo(l);
+      txForm({type:"out", space:"perso", cat:"pret", amount:Math.round(li.monthly), loanId:l.id, method: l.accountId ? "Banque" : "Espèces", accountId:l.accountId||"", date: li.next.date<=TODAY ? li.next.date : TODAY, note:`Échéance ${li.next.i}/${l.months} · ${l.label}`, title:"Payer l'échéance", intro:`${esc(l.bank)} · échéance du ${esc(dateTxt(li.next.date))}`}); },
+    importContacts, contact: () => contactForm(id==="new" ? null : get(id)),
+    connect, syncNow: () => { if (!navigator.onLine) toast("Pas de connexion pour l'instant : la synchro se fera automatiquement au retour du réseau."); else sync(); },
+    hideTip: () => { meta.hideTip = true; persistAll(); render(); },
+    disconnect: () => { if (!el.dataset.armed) { el.dataset.armed = "1"; el.textContent = "Appuie encore pour confirmer"; return; } cfg = null; ls.del(K.cfg); outbox = {}; meta.lastSync = 0; persistAll(); toast("Ce téléphone n'est plus synchronisé"); render(); },
+    saveName: async () => { const n = $("#pName").value.trim(); if (await saveSettings({name:n})) toast("Nom enregistré"); }
+  };
+  if (A[a]) { e.preventDefault(); A[a](); }
+});
+document.addEventListener("input", e => { if (e.target.id==="q") { state.q = e.target.value; const pos = e.target.selectionStart; render(); const q = $("#q"); q.focus(); try { q.setSelectionRange(pos,pos); } catch(_){} } });
+document.addEventListener("change", async e => {
+  const t = e.target;
+  if (t.id==="photoIn" && t.files[0]) setPhoto(t.files[0]);
+  if (t.id==="swLock") { if (t.checked) setupLock(); else if (await saveSettings({lockHash:""})) toast("Code désactivé"); }
+  if (t.id==="remDays") { if (await saveSettings({remindDays:+t.value})) toast("Réglage enregistré"); }
+  if (t.id==="swMail") { const on = t.checked; if (!cfg || !navigator.onLine) { t.checked = !on; toast("Il faut une connexion internet pour régler les rappels par e-mail."); return; } try { await api("reminders", {on}); await saveSettings({remindEmail:on}); toast(on ? "Rappels par e-mail activés (7 h chaque matin)" : "Rappels par e-mail désactivés"); } catch(err){ t.checked = !on; toast("Impossible de régler les rappels. Réessaie."); } }
+});
+
+SAMPLES = makeSamples();
+window.addEventListener("online", () => sync());
+window.addEventListener("offline", syncUI);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") sync(); });
+setInterval(() => { if (document.visibilityState === "visible") sync(); else syncUI(); }, 60000);
+if ("serviceWorker" in navigator && location.protocol === "https:" && window.top === window) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+render();
+boot();
+})();
+</script>
+</body>
+</html>
