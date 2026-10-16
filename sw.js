@@ -1,6 +1,6 @@
 /* Mes Finances — service worker : l'appli s'ouvre même sans internet. */
-const CACHE = "mes-finances-v4";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
+const CACHE = "mes-finances-v5";
+const SHELL = ["./", "./index.html", "./supabase.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -12,8 +12,8 @@ self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  // Le serveur de synchronisation n'est jamais mis en cache.
-  if (url.hostname === "script.google.com" || url.hostname === "script.googleusercontent.com") return;
+  // Le serveur (connexion et données) n'est jamais mis en cache.
+  if (url.hostname.endsWith("supabase.co")) return;
   const isPage = req.mode === "navigate";
   e.respondWith(caches.open(CACHE).then(async cache => {
     const cached = await cache.match(isPage ? "./index.html" : req, {ignoreSearch: isPage});

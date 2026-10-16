@@ -232,6 +232,7 @@ nav.tabs .plus span{width:52px;height:52px;border-radius:17px;background:var(--b
 <div id="sheetRoot"></div>
 <div id="lockRoot"></div>
 
+<script src="supabase.js"></script>
 <script>
 (function(){
 "use strict";
@@ -313,7 +314,7 @@ const pmt = (P_, ratePct, n) => { const r = ratePct/100/12; return r ? P_*r/(1-M
 const waLink = (phone, text) => { let d = String(phone||"").replace(/\D/g,""); if (!d) return ""; if (d.startsWith("00")) d = d.slice(2); if (d.length===8) d = "228"+d; return `https://wa.me/${d}?text=${encodeURIComponent(text)}`; };
 
 /* ================= State ================= */
-const state = { demo:false, space:"perso", month:ymOf(NOW), stack:[{s:"home"}], docs:new Map(), mode:"pending", email:"", photo:"", sheetUrl:"", filter:"all", debtFilter:"open", unlocked:false, acc:null, q:"" };
+const state = { demo:false, space:"perso", month:ymOf(NOW), stack:[{s:"home"}], docs:new Map(), mode:"pending", email:"", photo:"", filter:"all", debtFilter:"open", unlocked:false, acc:null, q:"" };
 try { const u = JSON.parse(localStorage.getItem("mf2-ui")||"{}"); if (u.space in CATS) state.space = u.space; } catch(e){}
 const saveUI = () => { try { localStorage.setItem("mf2-ui", JSON.stringify({space:state.space})); } catch(e){} };
 
@@ -381,39 +382,39 @@ const realOnly = id => !(usingSamples() && SAMPLES.has(id));
 
 function list(kind, pred, src){ const r=[]; for (const [id,d] of (src||all())) if (d.kind===kind && (!pred||pred(d))) r.push({id,...d}); return r; }
 function get(id){ if (!id) return null; const d = all().get(id); return d ? {id,...d} : null; }
-function settings(){ return Object.assign({name:"",titheBase:"global",tithePct:10,remindEmail:false,remindDays:3,lockHash:"",autoSave:true,autoSavePct:10,autoSaveSpaces:["perso","pro"],auth:null}, state.docs.get("settings")||{}); }
+function settings(){ return Object.assign({name:"",titheBase:"global",tithePct:10,remindEmail:false,remindDays:3,lockHash:"",autoSave:true,autoSavePct:10,autoSaveSpaces:["perso","pro"]}, state.docs.get("settings")||{}); }
 const contactsReal = () => list("contact", null, state.docs).sort((a,b)=>a.name.localeCompare(b.name,"fr"));
 const contactName = id => (get(id)||{}).name || "Contact supprimé";
 
 /* ================= Storage ================= */
-/* Local-first storage: every change is kept on this phone and queued; the queue is sent to Google Sheets when online. */
-const K = {cfg:"mf3-cfg", data:"mf3-data", out:"mf3-outbox", meta:"mf3-meta", photo:"mf3-photo", session:"mf3-session"};
+/* Local-first storage: each account keeps its own copy on the phone; changes are queued and sent to Supabase when online. */
+const SB_URL = "https://xclvxmnjwmvpwooowbdt.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjbHZ4bW5qd212cHdvb293YmR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE5MzI3MzIsImV4cCI6MjEwNzUwODczMn0.vgIB_JXxRzn5yT4jHVbOcrUql5ZWlqezlEtPfeJQ8BE";
+const APP_URL = location.origin + location.pathname.replace(/index\.html$/, "");
+const SB = (window.supabase && window.supabase.createClient && /^https?:$/.test(location.protocol))
+  ? window.supabase.createClient(SB_URL, SB_KEY, {auth:{storageKey:"mf5-auth", persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}}) : null;
 const ls = {
   get(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } },
   del(k){ try { localStorage.removeItem(k); } catch(e){} }
 };
-let cfg = ls.get(K.cfg, null), outbox = ls.get(K.out, {}), meta = ls.get(K.meta, {}), syncing = false, syncErr = "", syncTimer = null;
-const pendingCount = () => Object.keys(outbox).length + (meta.photoPending ? 1 : 0);
+let recovering = /type=recovery/.test(location.hash), me = ls.get("mf5-last", null), outbox = {}, meta = {}, syncing = false, syncErr = "", syncTimer = null, needLogin = false;
+const UK = () => ({data:"mf5-data-"+me.id, out:"mf5-out-"+me.id, meta:"mf5-meta-"+me.id});
+const pendingCount = () => Object.keys(outbox).length;
 function persistAll(){
-  const ok = ls.set(K.data, [...state.docs]) & ls.set(K.out, outbox) & ls.set(K.meta, meta);
+  if (!me) return;
+  const k = UK(), ok = ls.set(k.data, [...state.docs]) & ls.set(k.out, outbox) & ls.set(k.meta, meta);
   if (!ok) toast("La mémoire de l'appli est pleine sur ce téléphone. Synchronise puis libère de l'espace.");
 }
-async function api(action, payload){
-  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 45000);
-  try {
-    const r = await fetch(cfg.url, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(Object.assign({key:cfg.key, action}, payload||{})), signal: ctl.signal, redirect:"follow"});
-    let j; try { j = await r.json(); } catch(e){ throw new Error("Réponse illisible du serveur : vérifie l'adresse et que l'accès est sur « Tout le monde »."); }
-    if (!j.ok) throw new Error(j.error === "BAD_KEY" ? "Clé secrète incorrecte." : (j.error || "Erreur du serveur"));
-    return j;
-  } finally { clearTimeout(t); }
-}
+const refreshPhoto = () => { const ph = state.docs.get("photo"); state.photo = (ph && ph.data) || ""; };
+function loadUser(){ const k = UK(); state.docs = new Map(ls.get(k.data, [])); outbox = ls.get(k.out, {}); meta = ls.get(k.meta, {}); state.email = me.email || ""; refreshPhoto(); }
 const ago = ts => { if (!ts) return "jamais"; const m = Math.round((Date.now()-ts)/60000); return m<1 ? "à l'instant" : m<60 ? `il y a ${m} min` : m<1440 ? `il y a ${Math.round(m/60)} h` : "le " + new Date(ts).toLocaleDateString("fr-FR",{day:"numeric",month:"short"}); };
 function syncStatus(){
   const n = pendingCount(), w = n ? ` · ${n} modification${n>1?"s":""} en attente` : "";
-  if (!cfg) return {c:"", t: usingSamples() ? "Données d'exemple" : "Sur ce téléphone · synchro non configurée"};
+  if (state.demo || !me) return {c:"", t:"Données d'exemple"};
   if (syncing) return {c:"wait", t:"Synchronisation…"};
   if (!navigator.onLine) return {c:"wait", t:"Hors ligne" + w};
+  if (needLogin) return {c:"err", t:"Reconnecte-toi pour synchroniser"};
   if (syncErr) return {c:"err", t:"Synchro en échec" + w};
   if (n) return {c:"wait", t:`${n} modification${n>1?"s":""} à envoyer`};
   return {c:"ok", t:"Synchronisé " + ago(meta.lastSync)};
@@ -425,34 +426,54 @@ function syncUI(){
 const syncChip = (cls="syncchip") => { const st = syncStatus(); return cls === "syncchip"
   ? `<button class="${cls} ${st.c}" data-sync="${cls}" data-act="go" data-v="sync"><i></i><span>${esc(st.t)}</span></button>`
   : `<div class="${cls} ${st.c}" data-sync="${cls}"><i></i><span>${esc(st.t)}</span></div>`; };
-function scheduleSync(delay=1200){ clearTimeout(syncTimer); syncUI(); if (cfg) syncTimer = setTimeout(sync, delay); }
+function scheduleSync(delay=1200){ clearTimeout(syncTimer); syncUI(); if (me && SB) syncTimer = setTimeout(sync, delay); }
 async function sync(){
-  if (!cfg || syncing) return;
+  if (!SB || !me || syncing || state.demo) return;
   if (!navigator.onLine) { syncUI(); return; }
   syncing = true; syncUI();
-  const items = Object.values(outbox).slice(0, 300).map(o => { const d = state.docs.get(o.id);
-    return (o.del || !d) ? {id:o.id, kind:o.kind, del:true, _u:o._u} : {id:o.id, kind:d.kind, data:d, readable:readable(o.id, d), _u:o._u}; });
-  const sendPhoto = meta.photoPending ? state.photo : null;
+  const uid = me.id;
   try {
-    const res = await api("sync", {items, photoV: meta.photoV || 0, photo: sendPhoto});
-    const m = new Map(res.docs);
-    const missing = items.filter(it => !it.del && !m.has(it.id));
-    items.forEach(it => { if (missing.includes(it)) return; if (outbox[it.id] && outbox[it.id]._u === it._u) delete outbox[it.id]; });
-    Object.values(outbox).forEach(o => { if (o.del) m.delete(o.id); else if (state.docs.has(o.id)) m.set(o.id, state.docs.get(o.id)); });
-    const changed = JSON.stringify([...m].sort()) !== JSON.stringify([...state.docs].sort());
-    state.docs = m;
-    if (sendPhoto !== null && state.photo === sendPhoto) meta.photoPending = false;
-    let photoChanged = false;
-    if (typeof res.photo === "string" && !meta.photoPending) { state.photo = res.photo; ls.set(K.photo, res.photo); photoChanged = true; }
-    meta.photoV = res.photoV || 0; meta.lastSync = Date.now();
-    syncErr = missing.length ? `Le serveur n'a pas enregistré ${missing.length} élément${missing.length>1?"s":""} : mets à jour le fichier Code.gs (voir le guide).` : "";
-    if (res.email) cfg.email = state.email = res.email;
-    if (res.sheetUrl) cfg.sheetUrl = state.sheetUrl = res.sheetUrl;
-    ls.set(K.cfg, cfg); persistAll();
-    if (changed || photoChanged) render();
-  } catch(e){ syncErr = e && e.name === "AbortError" ? "Délai dépassé" : (e && e.message) || "Erreur"; }
-  syncing = false; syncUI();
-  if (!syncErr && Object.keys(outbox).length) scheduleSync(400);
+    const { data: { session } } = await SB.auth.getSession();
+    if (!session) { needLogin = true; throw new Error("Session expirée : reconnecte-toi pour synchroniser."); }
+    if (session.user.id !== uid) throw new Error("Compte différent : reconnecte-toi.");
+    needLogin = false;
+    // 1. Envoi des modifications, par paquets
+    let pending = Object.values(outbox);
+    while (pending.length) {
+      const batch = pending.slice(0, 300).map(o => { const d = state.docs.get(o.id);
+        return (o.del || !d) ? {id:o.id, kind:o.kind, del:true, _u:o._u} : {id:o.id, kind:d.kind, data:d, _u:o._u}; });
+      const { error } = await SB.rpc("mf_push", { items: batch });
+      if (error) throw error;
+      if (!me || me.id !== uid) return;
+      batch.forEach(it => { if (outbox[it.id] && outbox[it.id]._u === it._u) delete outbox[it.id]; });
+      persistAll(); syncUI();
+      pending = pending.slice(300);
+    }
+    // 2. Réception des changements faits ailleurs (avec 2 min de recouvrement)
+    let cursor = meta.cursor ? new Date(new Date(meta.cursor).getTime() - 120000).toISOString() : "1970-01-01T00:00:00Z", changed = false, maxTs = meta.cursor || "";
+    for (let guard = 0; guard < 100; guard++) {
+      const { data, error } = await SB.from("mf_docs").select("id,kind,data,u,deleted,server_ts").gt("server_ts", cursor).order("server_ts", {ascending:true}).limit(1000);
+      if (error) throw error;
+      if (!me || me.id !== uid) return;
+      for (const r of data) {
+        if (r.server_ts > maxTs) maxTs = r.server_ts;
+        if (outbox[r.id]) continue;
+        const local = state.docs.get(r.id);
+        if (r.deleted) { if (local) { state.docs.delete(r.id); changed = true; } continue; }
+        if (local && (local._u || 0) > r.u) continue;
+        if (!local || JSON.stringify(local) !== JSON.stringify(r.data)) { state.docs.set(r.id, r.data); changed = true; }
+      }
+      if (data.length < 1000) break;
+      cursor = data[data.length-1].server_ts;
+    }
+    meta.cursor = maxTs || meta.cursor; meta.lastSync = Date.now(); syncErr = "";
+    persistAll();
+    if (changed) { refreshPhoto(); render(); }
+  } catch(e){
+    const m = String(e && (e.message || e) || "");
+    syncErr = /Failed to fetch|NetworkError|network/i.test(m) ? "Serveur injoignable pour l'instant." : (m || "Erreur");
+  } finally { syncing = false; syncUI(); }
+  if (!syncErr && pendingCount()) scheduleSync(400);
 }
 function readable(id, d){
   const sp = SPACE_NAME[d.space]||"";
@@ -498,12 +519,52 @@ const store = {
   }
 };
 
-function boot(){
-  state.docs = new Map(ls.get(K.data, []));
-  state.photo = ls.get(K.photo, "") || "";
-  if (cfg) { state.email = cfg.email || ""; state.sheetUrl = cfg.sheetUrl || ""; }
+async function boot(){
   state.mode = "local";
-  render(); gate(); sync();
+  if (me) loadUser();
+  render();
+  if (!SB) { if (me) startApp(); else authView("login", "Connexion indisponible ici : ouvre l'appli depuis son adresse internet. Tu peux découvrir l'appli avec des exemples."); return; }
+  SB.auth.onAuthStateChange((ev, session) => {
+    if (ev === "PASSWORD_RECOVERY") { recovering = true; setTimeout(() => authView("newpw"), 0); return; }
+    if (ev === "SIGNED_IN" && session && (!me || me.id !== session.user.id || needLogin)) setTimeout(() => onSignedIn(session.user), 0);
+  });
+  if (me) { startApp(); sync(); return; }
+  let session = null;
+  try { session = (await SB.auth.getSession()).data.session; } catch(e){}
+  if (session) onSignedIn(session.user); else if (!state.unlocked) authView("login");
+}
+let signingIn = false;
+async function onSignedIn(user){
+  if (signingIn) return; signingIn = true;
+  try {
+    const switched = !me || me.id !== user.id;
+    me = {id:user.id, email:user.email}; ls.set("mf5-last", me); needLogin = false;
+    if (switched) loadUser();
+    state.demo = false; state.email = me.email;
+    const nm = user.user_metadata && (user.user_metadata.name || user.user_metadata.full_name);
+    if (nm && !settings().name) await saveSettings({name:nm});
+    startApp(); await sync(); offerLegacy();
+  } finally { signingIn = false; }
+}
+function startApp(){ if (recovering) return authView("newpw"); if (settings().lockHash) showLock(); else unlock(); }
+/* Données de l'ancienne version (Google Sheets) restées sur ce téléphone */
+function offerLegacy(){
+  const old = ls.get("mf3-data", null);
+  if (!me || !old || !old.length || ls.get("mf5-legacy-done", false)) return;
+  const n = old.filter(([id,d]) => d && d.kind !== "settings").length; if (!n) { ls.set("mf5-legacy-done", true); return; }
+  openSheet(`<h3>Anciennes données trouvées</h3><p class="small muted" style="margin:0">Ce téléphone contient ${n} élément${n>1?"s":""} de l'ancienne version de l'appli. Les ajouter au compte <b>${esc(me.email)}</b> ?</p>
+    <button class="btn wide" id="lgYes">Ajouter à mon compte</button><button class="btn ghost wide" id="lgNo">Ne pas ajouter</button>`, sh => {
+    sh.querySelector("#lgNo").addEventListener("click", () => { ls.set("mf5-legacy-done", true); closeSheet(); });
+    sh.querySelector("#lgYes").addEventListener("click", async () => {
+      const items = [];
+      old.forEach(([id, d]) => { if (!d) return;
+        if (d.kind === "settings") { const {auth, remindEmail, ...rest} = d; items.push(["settings", Object.assign({}, rest, state.docs.get("settings") || {}, {kind:"settings"})]); }
+        else if (!state.docs.has(id)) items.push([id, d]); });
+      const ph = ls.get("mf3-photo", ""); if (ph && !state.docs.has("photo")) items.push(["photo", {kind:"photo", data:ph}]);
+      closeSheet();
+      if (await store.saveMany(items)) { ls.set("mf5-legacy-done", true); refreshPhoto(); render(); toast(`${n} élément${n>1?"s":""} ajouté${n>1?"s":""} à ton compte`); }
+    });
+  });
 }
 
 /* ================= Calculations ================= */
@@ -684,7 +745,6 @@ SCREENS.home = () => {
     <div>${monthNav()}<div class="bal num">${t.net<0?"−":""}${fmt(Math.abs(t.net))}<small>F CFA</small></div>
     <div class="ballbl">Solde du mois · ${esc(SPACE_NAME[sp])} · <span class="num">+${fmt(t.in)} / −${fmt(t.out)}</span></div>${syncChip()}</div>
     <div class="quick">${quick}</div></header><div class="panel">${sampleBanner()}`;
-  if (!cfg && !meta.hideTip && !state.demo) h += `<section class="card"><div class="ch"><h2>Sauvegarde Google Sheets</h2><span class="pill info">Conseillé</span></div><p class="small muted" style="margin:0">L'appli fonctionne hors ligne. Connecte ton tableur Google pour sauvegarder tes données et les retrouver sur tous tes appareils.</p><div class="btns"><button class="btn" data-act="go" data-v="sync">Connecter</button><button class="btn ghost" data-act="hideTip">Plus tard</button></div></section>`;
   if (rem.length) h += `<section class="card"><div class="ch"><h2>Rappels</h2><button class="link" data-act="go" data-v="rappels">Tout voir</button></div>${remList(rem.slice(0,3))}</section>`;
   if (sp==="lambano") {
     const by = {}; mtx.filter(x=>x.type==="in").forEach(x => by[x.cat] = (by[x.cat]||0) + x.amount);
@@ -721,7 +781,7 @@ function remList(rem){
   return rem.map(r => `<button class="alert" data-act="goto" data-v='${esc(JSON.stringify(r.go))}'><span class="ico" style="background:${tone[r.tone][0]};color:${tone[r.tone][1]}">${ic(r.icon)}</span><span style="min-width:0"><b>${esc(r.title)}</b><span class="num">${esc(r.sub)}</span></span>${ic("chev")}</button>`).join("");
 }
 SCREENS.rappels = () => subHero("Rappels", "Remboursements, prêt, dîme, impôts et soldes clients") + `<div class="panel"><section class="card">${remList(reminders())}</section>
-  <p class="small muted" style="margin:0 4px">${cfg ? "Tu peux aussi recevoir ces rappels par e-mail chaque matin : Profil → Rappels par e-mail." : "Une fois ton Google Sheets connecté, ces rappels peuvent aussi arriver par e-mail chaque matin."}</p></div>`;
+  <p class="small muted" style="margin:0 4px">Les rappels s'affichent ici et sur l'accueil à chaque ouverture de l'appli.</p></div>`;
 
 SCREENS.ops = () => {
   const mtx = txs(t => t.space===state.space && t.date.startsWith(state.month));
@@ -805,12 +865,12 @@ SCREENS.plus = () => {
   const tile = (v,icon,t,sub) => `<button class="tile" data-act="go" data-v="${v}"><span class="ico">${ic(icon)}</span><b>${t}</b><span class="num">${sub}</span></button>`;
   const totBank = accs.reduce((x,a)=>x+accBalance(a),0), rest = loans.reduce((x,l)=>x+loanInfo(l).remaining,0);
   return rootHero("Plus", "", {right:""}) + `<div class="panel">
-    <button class="card" style="border:0;flex-direction:row;align-items:center;text-align:left" data-act="go" data-v="profil">${avatar(s.name||state.email||"Moi", state.photo, 56)}<div style="min-width:0;flex:1"><b style="font-size:16px;display:block">${esc(s.name||"Mon profil")}</b><span class="small muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${esc((s.auth ? "@" + s.auth.user : "") || state.email || "Photo, nom, identifiant")}</span></div>${ic("chev")}</button>
+    <button class="card" style="border:0;flex-direction:row;align-items:center;text-align:left" data-act="go" data-v="profil">${avatar(s.name||state.email||"Moi", state.photo, 56)}<div style="min-width:0;flex:1"><b style="font-size:16px;display:block">${esc(s.name||"Mon profil")}</b><span class="small muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${esc(state.email || "Photo, nom, mot de passe")}</span></div>${ic("chev")}</button>
     <div class="tiles">${tile("banque","bank","Compte bancaire",accs.length?money(totBank):"Ajouter un compte")}${tile("prets","loan","Prêt bancaire",loans.length?money(rest)+" restants":"Suivre un prêt")}
     ${tile("dime","church","Dîme",s.tithePct+" % du bénéfice")}${tile("contacts","users","Contacts",cs.length+" contact"+(cs.length>1?"s":""))}
     ${tile("epargne","piggy","Épargne",money(savingTotal()))}${tile("impots","receipt","Impôts Berekia",taxOpen().length?money(taxOpen().reduce((x,i)=>x+i.rest,0))+" à payer":list("tax").length?"À jour":"À configurer")}
     ${tile("budgets","target","Budgets","Plafonds du mois")}
-    ${tile("bilans","chart","Bilans","Graphiques du mois")}${tile("sync","swap","Synchronisation",cfg?(pendingCount()?pendingCount()+" en attente":"À jour"):"Non configurée")}</div></div>`;
+    ${tile("bilans","chart","Bilans","Graphiques du mois")}${tile("sync","swap","Synchronisation",me&&!state.demo?(pendingCount()?pendingCount()+" en attente":"À jour"):"Mode découverte")}</div></div>`;
 };
 
 /* --- Budgets / Épargne / Bilans --- */
@@ -980,60 +1040,35 @@ SCREENS.profil = () => {
   return subHero("Profil & réglages", "") + `<div class="panel">
     <div class="profilehead">${avatar(s.name||state.email||"Moi", state.photo, 96)}
       <label class="btn soft" style="cursor:pointer">${ic("camera")}Changer la photo<input id="photoIn" type="file" accept="image/*" hidden></label>
-      <div><b style="font-size:18px;display:block">${esc(s.name||"Ton nom")}</b><span class="small muted">${esc(state.email || (cfg ? "" : "Compte Google non connecté"))}</span></div></div>
+      <div><b style="font-size:18px;display:block">${esc(s.name||"Ton nom")}</b><span class="small muted">${esc(state.email || "Mode découverte")}</span></div></div>
     <section class="card"><h2>Compte</h2>
       <div class="field"><label for="pName">Nom affiché</label><input id="pName" value="${esc(s.name)}" placeholder="Ex. : Frédéric ETSINYO" maxlength="60"></div>
       <button class="btn" data-act="saveName">Enregistrer le nom</button>
-      ${s.auth ? `<div class="toggle"><div><b>Identifiant</b><span>${esc(s.auth.user)}</span></div></div>
-      <div class="btns"><button class="btn ghost" data-act="changePw">${ic("key")}Changer le mot de passe</button><button class="btn danger" data-act="logout">${ic("logout")}Se déconnecter</button></div>` : ""}
-      <p class="small muted" style="margin:0">${cfg?"Tes données sont sauvegardées dans ton Google Sheets, protégé par ta clé secrète.":"Connecte ton Google Sheets dans Synchronisation pour sauvegarder tes données."}</p></section>
+      ${me && !state.demo ? `<div class="toggle"><div><b>Adresse e-mail</b><span>${esc(me.email)}</span></div></div>
+      <div class="btns"><button class="btn ghost" data-act="changePw">${ic("key")}Changer le mot de passe</button><button class="btn danger" data-act="logout">${ic("logout")}Se déconnecter</button></div>
+      <p class="small muted" style="margin:0">Tes données sont enregistrées sur ce téléphone et sauvegardées en ligne dans ton compte. Personne d'autre n'y a accès.</p>` : `<button class="btn" data-act="startCreate">Créer mon compte</button>`}</section>
     <button class="card" style="border:0;text-align:left" data-act="go" data-v="sync"><div class="ch"><h2>Synchronisation</h2>${ic("chev")}</div>${syncChip("syncline")}</button>
     <section class="card"><h2>Sécurité</h2>
-      <div class="toggle"><div><b>Code rapide</b><span>${s.lockHash?"Activé : un code à 4 chiffres est demandé à chaque ouverture":"Demander un code à 4 chiffres à chaque ouverture (le mot de passe reste valable 30 jours)"}</span></div><input type="checkbox" class="sw" id="swLock" ${s.lockHash?"checked":""} aria-label="Code de verrouillage"></div></section>
+      <div class="toggle"><div><b>Code rapide</b><span>${s.lockHash?"Activé : un code à 4 chiffres est demandé à chaque ouverture":"Demander un code à 4 chiffres à chaque ouverture"}</span></div><input type="checkbox" class="sw" id="swLock" ${s.lockHash?"checked":""} aria-label="Code rapide"></div></section>
     <section class="card"><h2>Rappels</h2>
-      <div class="toggle"><div><b>Rappels par e-mail</b><span>Chaque matin à 7 h : remboursements, prêt, dîme, impôts</span></div><input type="checkbox" class="sw" id="swMail" ${s.remindEmail?"checked":""} ${cfg?"":"disabled"} aria-label="Rappels par e-mail"></div>
       <div class="field"><label for="remDays">Prévenir combien de jours avant ?</label><select id="remDays">${[1,2,3,5,7].map(n=>`<option value="${n}" ${s.remindDays==n?"selected":""}>${n} jour${n>1?"s":""}</option>`).join("")}</select></div></section>
     <section class="card"><h2>Dîme</h2><button class="btn ghost" data-act="titheSettings">${ic("church")}${s.tithePct} % · base ${titheBaseL(s.titheBase)}</button></section>
-    ${state.sheetUrl?`<section class="card"><h2>Mes données</h2><a class="btn ghost" href="${esc(state.sheetUrl)}" target="_blank" rel="noopener">${ic("sheet")}Ouvrir mon tableur Google Sheets</a></section>`:""}</div>`;
+    <section class="card"><h2>Mes données</h2>
+      <button class="btn ghost" data-act="exportCsv">${ic("sheet")}Exporter mes opérations (Excel)</button>
+      <button class="btn ghost" data-act="exportJson">${ic("down")}Sauvegarde complète (fichier)</button></section></div>`;
 };
 
 /* --- Synchronisation --- */
 SCREENS.sync = () => {
-  const st = syncStatus(), n = pendingCount();
-  if (!cfg) return subHero("Synchronisation", "Relie l'appli à ton Google Sheets") + `<div class="panel">
-    <section class="card"><h2>Connexion au serveur</h2>
-      <p class="small muted" style="margin:0">Colle les deux informations affichées après l'installation du script Apps Script (fonction « installer »).</p>
-      <div class="field"><label for="cfgUrl">Adresse de l'application Web</label><input id="cfgUrl" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
-      <div class="field"><label for="cfgKey">Clé secrète</label><input id="cfgKey" type="text" placeholder="mf-…" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
-      <p class="err" id="cfgErr" hidden></p>
-      <button class="btn wide" data-act="connect">Connecter et synchroniser</button></section>
-    <section class="card"><h2>Comment ça marche</h2><p class="small muted" style="margin:0">Tout ce que tu saisis est gardé sur ce téléphone, même sans réseau. Dès que la connexion revient, les modifications partent dans ton tableur et celles faites sur tes autres appareils arrivent ici.</p></section></div>`;
-  return subHero("Synchronisation", esc(cfg.email || "Google Sheets connecté")) + `<div class="panel">
+  const n = pendingCount();
+  if (!me || state.demo) return subHero("Synchronisation", "Mode découverte") + `<div class="panel"><section class="card"><p class="small muted" style="margin:0">Crée ton compte pour enregistrer tes données sur ce téléphone et les sauvegarder en ligne.</p><button class="btn wide" data-act="startCreate">Créer mon compte</button></section></div>`;
+  return subHero("Synchronisation", esc(me.email)) + `<div class="panel">
     <section class="card">${syncChip("syncline")}
       <div class="kv num"><div><span>Dernière synchro</span><b>${esc(ago(meta.lastSync))}</b></div><div><span>En attente d'envoi</span><b>${n}</b></div></div>
       ${syncErr ? `<p class="err">${esc(syncErr)}</p>` : ""}
-      <button class="btn wide" data-act="syncNow">${ic("swap")}Synchroniser maintenant</button>
-      ${state.sheetUrl ? `<a class="btn ghost wide" href="${esc(state.sheetUrl)}" target="_blank" rel="noopener">${ic("sheet")}Ouvrir mon tableur</a>` : ""}</section>
-    <section class="card"><h2>Ce téléphone</h2><p class="small muted" style="margin:0">Le déconnecter garde ses données mais arrête la synchronisation.${n ? ` <b style="color:var(--bad)">${n} modification${n>1?"s":""} pas encore envoyée${n>1?"s":""} seraient perdues pour le tableur.</b>` : ""}</p>
-      <button class="btn danger" data-act="disconnect">Déconnecter ce téléphone</button></section></div>`;
+      ${needLogin ? `<button class="btn wide" data-act="relogin">${ic("key")}Me reconnecter</button>` : `<button class="btn wide" data-act="syncNow">${ic("swap")}Synchroniser maintenant</button>`}</section>
+    <section class="card"><h2>Comment ça marche</h2><p class="small muted" style="margin:0">Tout ce que tu saisis est gardé sur ce téléphone, même sans réseau. Dès que la connexion revient, les modifications sont envoyées dans ton compte et celles faites sur tes autres appareils arrivent ici.</p></section></div>`;
 };
-async function connectCore(url, key){
-  if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)) return "L'adresse doit ressembler à https://script.google.com/macros/s/…/exec";
-  if (key.length < 16) return "Colle la clé secrète complète.";
-  if (!navigator.onLine) return "Il faut une connexion internet pour la première connexion.";
-  const old = cfg; cfg = {url, key};
-  try { const r = await api("ping"); cfg.email = r.email; cfg.sheetUrl = r.sheetUrl; ls.set(K.cfg, cfg); state.email = r.email || ""; state.sheetUrl = r.sheetUrl || "";
-    [...state.docs].forEach(([id, d]) => { if (!outbox[id]) outbox[id] = {id, kind:d.kind, _u:d._u || 1}; });
-    persistAll(); return ""; }
-  catch(e){ cfg = old; return e.name === "AbortError" ? "Le serveur ne répond pas. Réessaie." : e.message === "Failed to fetch" ? "Serveur injoignable : vérifie l'adresse et que l'accès est « Tout le monde »." : e.message; }
-}
-async function connect(){
-  const err = $("#cfgErr"), btn = document.querySelector('[data-act="connect"]');
-  btn.disabled = true; btn.textContent = "Connexion…";
-  const msg = await connectCore($("#cfgUrl").value.trim(), $("#cfgKey").value.trim());
-  if (msg) { err.textContent = msg; err.hidden = false; btn.disabled = false; btn.textContent = "Connecter et synchroniser"; return; }
-  toast("Connecté à " + (cfg.email || "ton Google Sheets")); render(); sync();
-}
 
 /* ================= Forms ================= */
 function openSheet(html, mount){
@@ -1310,18 +1345,20 @@ function taxForm(existing, tpl){
   }, danger: existing && realOnly(existing.id) ? {label:"Supprimer cet impôt", onClick: async()=>{ if (await store.remove(existing.id)) toast("Impôt supprimé"); }} : null});
 }
 function changePwForm(){
-  const a = settings().auth; if (!a) return;
+  if (!SB || !me) return;
   form({title:"Changer le mot de passe", fields:[
-    {id:"cur", type:"password", label:"Mot de passe actuel", value:"", required:true},
     {id:"pw", type:"password", label:"Nouveau mot de passe (6 caractères min.)", value:"", required:true},
     {id:"pw2", type:"password", label:"Confirmer", value:"", required:true}
   ], onSubmit: async v => {
-    if (await pwHash(v.cur, a.salt, a.iter) !== a.hash) { toast("Mot de passe actuel incorrect."); return false; }
-    if (v.pw.length < 6) { toast("Le nouveau mot de passe doit faire au moins 6 caractères."); return false; }
+    if (!navigator.onLine) { toast("Il faut une connexion internet pour changer le mot de passe."); return false; }
+    if (v.pw.length < 6) { toast("Le mot de passe doit faire au moins 6 caractères."); return false; }
     if (v.pw !== v.pw2) { toast("Les deux mots de passe ne correspondent pas."); return false; }
-    if (await saveSettings({auth: await makeAuth(a.user, v.pw)})) toast("Mot de passe modifié");
+    const { error } = await SB.auth.updateUser({password:v.pw});
+    if (error) { toast(authErr(error)); return false; }
+    toast("Mot de passe modifié");
   }});
 }
+
 
 function addMenu(){
   const it = (act,icon,t,sub,v="") => `<button data-m="${act}" data-v="${v}"><span class="ico">${ic(icon)}</span><span><b>${t}</b><span>${sub}</span></span></button>`;
@@ -1332,18 +1369,55 @@ function addMenu(){
   });
 }
 
-/* --- Google contacts import --- */
-async function importContacts(){
-  if (!cfg) { toast("Connecte d'abord ton Google Sheets (Plus → Synchronisation)."); return; }
-  if (!navigator.onLine) { toast("Il faut une connexion internet pour lire tes contacts Google."); return; }
-  toast("Lecture de tes contacts Google…");
-  let res; try { res = (await api("contacts")).contacts; } catch(e){
-    const m = String(e && e.message || e);
-    toast(m.includes("PEOPLE_API") ? "Active le service « People API » dans ton projet Apps Script (voir le guide)." : "Impossible de lire tes contacts. Réessaie."); return; }
-  const have = new Set(contactsReal().map(c=>c.googleId).filter(Boolean));
-  const fresh = res.filter(c => !have.has(c.googleId));
-  if (!fresh.length) { toast(res.length ? "Tous tes contacts sont déjà importés." : "Aucun contact trouvé dans ton compte Google."); return; }
-  openSheet(`<h3>Importer des contacts</h3><p class="small muted" style="margin:0">${fresh.length} contact${fresh.length>1?"s":""} Google pas encore importé${fresh.length>1?"s":""}.</p>
+/* --- Contacts import : téléphone ou fichier vCard (export Google Contacts) --- */
+function importContacts(){
+  if (state.demo) { toast("Mode découverte : crée ton compte pour importer tes contacts."); return; }
+  const phone = !!(navigator.contacts && navigator.contacts.select);
+  openSheet(`<h3>Importer des contacts</h3><div class="menu">
+    ${phone ? `<button data-m="phone"><span class="ico">${ic("phone")}</span><span><b>Contacts du téléphone</b><span>Choisis une ou plusieurs personnes</span></span></button>` : ""}
+    <label style="display:grid;grid-template-columns:42px 1fr;gap:12px;align-items:center;background:var(--bg);border-radius:14px;padding:10px 12px;cursor:pointer"><span class="ico" style="width:42px;height:42px;background:var(--brand-soft);color:var(--brand)">${ic("users")}</span><span><b style="display:block;font-size:14.5px">Fichier de contacts (.vcf)</b><span class="small muted">Tous tes contacts Gmail d'un coup</span></span><input id="vcfIn" type="file" accept=".vcf,text/vcard,text/x-vcard" hidden></label></div>
+    <p class="small muted" style="margin:0">Pour tous tes contacts Gmail : sur <b>contacts.google.com</b>, choisis <b>Exporter → vCard</b>, puis sélectionne ce fichier ici. Tu pourras ensuite tout sélectionner en une fois.</p>`, sh => {
+    const b = sh.querySelector('[data-m="phone"]');
+    if (b) b.addEventListener("click", async () => {
+      try { const res = await navigator.contacts.select(["name","tel","email"], {multiple:true});
+        const items = res.map(c => ({name:(c.name&&c.name[0])||(c.tel&&c.tel[0])||(c.email&&c.email[0])||"", phone:(c.tel&&c.tel[0])||"", email:(c.email&&c.email[0])||""})).filter(c => c.name);
+        closeSheet(); if (items.length) showContactPicker(items, "du téléphone"); }
+      catch(e){ toast("Accès aux contacts refusé ou annulé."); }
+    });
+    sh.querySelector("#vcfIn").addEventListener("change", e => { const f = e.target.files[0]; if (!f) return;
+      const r = new FileReader(); r.onload = () => { const items = parseVcf(String(r.result)); closeSheet();
+        if (!items.length) toast("Aucun contact trouvé dans ce fichier."); else showContactPicker(items, "du fichier"); };
+      r.onerror = () => toast("Ce fichier ne peut pas être lu."); r.readAsText(f); });
+  });
+}
+function qpDecode(str){ try { const bytes = []; str.replace(/=([0-9A-F]{2})|([^=])/gi, (m, h, c) => { if (h) bytes.push(parseInt(h,16)); else for (const b of new TextEncoder().encode(c)) bytes.push(b); }); return new TextDecoder().decode(new Uint8Array(bytes)); } catch(e){ return str; } }
+function parseVcf(txt){
+  let raw = txt.replace(/\r\n?/g, "\n");
+  raw = raw.replace(/=\n/g, (m, off) => { const ls0 = raw.lastIndexOf("\n", off-1); return /QUOTED-PRINTABLE/i.test(raw.slice(ls0, off)) ? "" : m; });
+  const lines = raw.replace(/\n[ \t]/g, "").split("\n"), out = []; let cur = null;
+  for (const l of lines) {
+    const u = l.toUpperCase();
+    if (u.startsWith("BEGIN:VCARD")) { cur = {name:"", n:"", phone:"", email:"", photo:""}; continue; }
+    if (u.startsWith("END:VCARD")) { if (cur) { const name = (cur.name || cur.n || cur.phone || cur.email).trim(); if (name) out.push({name, phone:cur.phone, email:cur.email, photo:cur.photo}); } cur = null; continue; }
+    if (!cur || l.indexOf(":") < 0) continue;
+    const head = u.slice(0, l.indexOf(":")), key = head.split(";")[0].replace(/^ITEM\d+\./, "");
+    let v = l.slice(l.indexOf(":")+1);
+    if (/QUOTED-PRINTABLE/.test(head)) v = qpDecode(v);
+    v = v.replace(/\\([,;\\])/g, "$1").replace(/\\n/gi, " ").trim();
+    if (key === "FN" && !cur.name) cur.name = v;
+    else if (key === "N" && !cur.n) { const q = v.split(";"); cur.n = [q[1], q[0]].filter(Boolean).join(" ").trim(); }
+    else if (key === "TEL" && !cur.phone) cur.phone = v;
+    else if (key === "EMAIL" && !cur.email) cur.email = v;
+    else if (key === "PHOTO" && !cur.photo && /^https?:/i.test(v)) cur.photo = v;
+  }
+  return out;
+}
+const contactKey = c => { const d = String(c.phone||"").replace(/\D/g, ""); return d.length >= 8 ? "t" + d.slice(-8) : c.email ? "m" + c.email.toLowerCase() : "n" + String(c.name).toLowerCase(); };
+function showContactPicker(items, from){
+  const have = new Set(contactsReal().map(contactKey)), seen = new Set();
+  const fresh = items.filter(c => { const k = contactKey(c); if (have.has(k) || seen.has(k)) return false; seen.add(k); return true; });
+  if (!fresh.length) { toast("Ces contacts sont déjà dans l'appli."); return; }
+  openSheet(`<h3>Importer des contacts</h3><p class="small muted" style="margin:0">${fresh.length} contact${fresh.length>1?"s":""} ${esc(from)} pas encore dans l'appli.</p>
     <div class="field"><input id="pq" type="search" placeholder="Rechercher un nom ou un numéro" aria-label="Rechercher"></div>
     <div class="pickhead"><label class="check"><input type="checkbox" id="pall">Tout sélectionner (<span id="pvis">${fresh.length}</span>)</label><span class="small muted" id="pcount">0 sélectionné</span></div>
     <div class="pick">${fresh.map((c,i)=>`<label data-n="${esc((c.name+" "+(c.phone||"")+" "+(c.email||"")).toLowerCase())}"><input type="checkbox" value="${i}">${avatar(c.name,c.photo,36)}<span style="min-width:0"><b style="display:block;font-size:14px">${esc(c.name)}</b><span class="small muted num">${esc(c.phone||c.email||"")}</span></span></label>`).join("")}</div>
@@ -1360,19 +1434,33 @@ async function importContacts(){
       btn.addEventListener("click", async () => {
         const sel = boxes.filter(b => b.checked).map(x => fresh[+x.value]); if (!sel.length) return;
         closeSheet();
-        if (await store.saveMany(sel.map(c => [newId("ct"), {kind:"contact", name:c.name, phone:c.phone||"", email:c.email||"", photo:c.photo||"", googleId:c.googleId}]))) toast(`${sel.length} contact${sel.length>1?"s":""} importé${sel.length>1?"s":""}`);
+        if (await store.saveMany(sel.map(c => [newId("ct"), {kind:"contact", name:c.name, phone:c.phone||"", email:c.email||"", photo:c.photo||""}]))) toast(`${sel.length} contact${sel.length>1?"s":""} importé${sel.length>1?"s":""}`);
       });
     });
 }
+
+/* --- Export --- */
+function downloadFile(name, text, type){
+  const blob = new Blob([text], {type}), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+function exportCsv(){
+  const rows = txs(() => true), q = v => { const t = String(v ?? ""); return /[";\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  const lines = [["Espace","Type","Date","Montant (F CFA)","Catégorie","Moyen","Libellé","Personne","Contrat"].join(";")].concat(rows.map(t => readable(t.id, t).map(q).join(";")));
+  downloadFile(`mes-finances-operations-${TODAY}.csv`, "\ufeff" + lines.join("\n"), "text/csv;charset=utf-8");
+  toast(`${rows.length} opération${rows.length>1?"s":""} exportée${rows.length>1?"s":""}`);
+}
+function exportJson(){ downloadFile(`mes-finances-sauvegarde-${TODAY}.json`, JSON.stringify({app:"Mes Finances", date:TODAY, email:me && me.email, docs:[...all()]}, null, 1), "application/json"); toast("Sauvegarde créée"); }
 
 /* --- Profile photo --- */
 function resizeImage(file, max=320){ return new Promise((res,rej) => { const r = new FileReader(); r.onerror = rej; r.onload = () => { const img = new Image(); img.onerror = rej; img.onload = () => {
   const s = Math.min(1, max/Math.max(img.width,img.height)), side = Math.min(img.width,img.height), c = document.createElement("canvas"); c.width = c.height = Math.round(side*s);
   c.getContext("2d").drawImage(img, (img.width-side)/2, (img.height-side)/2, side, side, 0, 0, c.width, c.height); res(c.toDataURL("image/jpeg", .85)); }; img.src = r.result; }; r.readAsDataURL(file); }); }
 async function setPhoto(file){
+  if (demoBlock()) return;
   let data; try { data = await resizeImage(file); } catch(e){ toast("Cette image ne peut pas être lue. Essaie une photo JPG ou PNG."); return; }
-  state.photo = data; ls.set(K.photo, data); meta.photoPending = true; persistAll(); render(); scheduleSync();
-  toast(cfg && navigator.onLine ? "Photo mise à jour" : "Photo enregistrée sur ce téléphone");
+  if (await store.save("photo", {kind:"photo", data})) { refreshPhoto(); render(); toast("Photo mise à jour"); }
 }
 
 /* --- Lock --- */
@@ -1382,10 +1470,10 @@ function keypad(title, onDone){
   const draw = (msg) => { $("#lockRoot").innerHTML = `<div class="lock">${avatar(settings().name||"Moi", state.photo, 76)}<div style="text-align:center"><b style="font-size:18px">${esc(title)}</b>${msg?`<div style="margin-top:6px;opacity:.85">${esc(msg)}</div>`:""}</div>
     <div class="pins">${[0,1,2,3].map(i=>`<i class="${i<code.length?"f":""}"></i>`).join("")}</div>
     <div class="pad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-k="${n}">${n}</button>`).join("")}<span></span><button data-k="0">0</button><button data-k="del" aria-label="Effacer">⌫</button></div>
-    ${settings().auth && title==="Entre ton code" ? `<button class="lnk" data-k="pw">Utiliser mon mot de passe</button>` : ""}</div>`; };
+    ${SB && title==="Entre ton code" ? `<button class="lnk" data-k="pw">Utiliser mon mot de passe</button>` : ""}</div>`; };
   draw();
   $("#lockRoot").onclick = async e => { const b = e.target.closest("[data-k]"); if (!b) return;
-    if (b.dataset.k==="pw") { closeSession(); $("#lockRoot").onclick = null; authView("login"); return; }
+    if (b.dataset.k==="pw") { $("#lockRoot").onclick = null; authView("login"); return; }
     if (b.dataset.k==="del") code = code.slice(0,-1); else if (code.length<4) code += b.dataset.k;
     draw(); if (code.length===4) { const c = code; code = ""; const r = await onDone(c); if (r) draw(r); } };
 }
@@ -1395,106 +1483,109 @@ function setupLock(){ let first = ""; keypad("Choisis un code à 4 chiffres", as
   if (c !== first) { first = ""; return "Les codes ne correspondent pas. Recommence."; }
   $("#lockRoot").innerHTML = ""; $("#lockRoot").onclick = null; if (await saveSettings({lockHash: await sha(c)})) toast("Code activé"); return ""; }); }
 
-/* ================= Login ================= */
-const hexOf = buf => [...new Uint8Array(buf)].map(x=>x.toString(16).padStart(2,"0")).join("");
-const bytesOf = hex => new Uint8Array((hex.match(/../g)||[]).map(h=>parseInt(h,16)));
-const normUser = u => String(u||"").trim().toLowerCase();
-async function pwHash(pw, salt, iter){ const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"]);
-  return hexOf(await crypto.subtle.deriveBits({name:"PBKDF2", hash:"SHA-256", salt:bytesOf(salt), iterations:iter}, k, 256)); }
-async function makeAuth(user, pw){ const salt = hexOf(crypto.getRandomValues(new Uint8Array(16))), iter = 150000; return {user:normUser(user), salt, iter, hash: await pwHash(pw, salt, iter)}; }
-function sessionValid(){ const a = settings().auth; if (!a) return false; const s = ls.get(K.session, null); if (s && s.user===a.user && s.exp > Date.now()) return true; try { return sessionStorage.getItem(K.session) === a.user; } catch(e){ return false; } }
-function openSession(user, remember){ if (remember) ls.set(K.session, {user, exp: Date.now() + 30*864e5}); else { ls.del(K.session); try { sessionStorage.setItem(K.session, user); } catch(e){} } }
-function closeSession(){ ls.del(K.session); try { sessionStorage.removeItem(K.session); } catch(e){} }
-let failCount = 0, failUntil = 0;
-function gate(){
-  const s = settings();
-  if (!s.auth) { if (state.demo) return unlock(); return authView(state.docs.size ? "create" : "welcome"); }
-  if (!sessionValid()) return authView("login");
-  if (s.lockHash) return showLock();
-  unlock();
-}
+/* ================= Connexion (Supabase : e-mail + mot de passe) ================= */
+const authErr = e => { const m = String(e && (e.message || e.error_description || e) || "");
+  if (/Invalid login credentials/i.test(m)) return "E-mail ou mot de passe incorrect.";
+  if (/Email not confirmed/i.test(m)) return "Ton adresse n'est pas encore confirmée : ouvre le lien reçu par e-mail.";
+  if (/already registered|already exists/i.test(m)) return "Un compte existe déjà avec cet e-mail. Connecte-toi.";
+  if (/Password should be|at least 6/i.test(m)) return "Le mot de passe doit faire au moins 6 caractères.";
+  if (/rate limit|too many|security purposes/i.test(m)) return "Trop de demandes. Attends quelques minutes puis réessaie.";
+  if (/valid email|invalid.*email|email.*invalid/i.test(m)) return "Adresse e-mail invalide.";
+  if (/same.?password|different from the old/i.test(m)) return "Choisis un mot de passe différent de l'ancien.";
+  if (/Failed to fetch|NetworkError|network|Load failed/i.test(m)) return "Pas de connexion internet. Réessaie quand tu es en ligne.";
+  return m || "Une erreur est survenue."; };
+const isEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 function unlock(){ state.unlocked = true; $("#lockRoot").innerHTML = ""; $("#lockRoot").onclick = null; render(); }
-function authView(view, msg){
+async function logout(){
+  if (SB) { try { await SB.auth.signOut({scope:"local"}); } catch(e){} }
+  ls.del("mf5-last"); me = null; needLogin = false; syncErr = ""; outbox = {}; meta = {}; state.docs = new Map(); state.photo = ""; state.email = "";
+  state.stack = [{s:"home"}]; closeSheet(); authView("login");
+}
+function authView(view, msg, extra){
   state.unlocked = false;
-  const s = settings(), a = s.auth, root = $("#lockRoot");
+  const s = settings(), root = $("#lockRoot"), last = ls.get("mf5-last-email", "");
   const logo = `<div class="logo">${ic("wallet")}</div>`;
   const err = msg ? `<p class="err">${esc(msg)}</p>` : "";
-  const pwField = (id, label, auto) => `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="password" autocomplete="${auto}" required></div>`;
-  const remember = `<label class="check"><input type="checkbox" id="aRem" checked>Rester connecté sur ce téléphone (30 jours)</label>`;
+  const info = t => `<p class="small" style="margin:0;color:var(--good);font-weight:600">${esc(t)}</p>`;
+  const pwField = (id, label, auto) => `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="password" autocomplete="${auto}"></div>`;
+  const emailField = v => `<div class="field"><label for="aMail">Adresse e-mail</label><input id="aMail" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" value="${esc(v||"")}" placeholder="ton.adresse@gmail.com"></div>`;
   let h = "";
-  if (view==="welcome") h = `${logo}<h1>Mes Finances</h1><p class="lead">Personnel · Lambano · Berekia Multiservices</p>
-    <div class="authcard"><h2>Bienvenue</h2><p class="small muted" style="margin:0">Suis tes dépenses, ton épargne, tes dettes, tes contrats et tes impôts, même sans internet.</p>
-      <button class="btn wide" data-a="toCreate">Créer mon compte</button><button class="btn soft wide" data-a="toConnect">J'ai déjà un compte (autre appareil)</button></div>
-    <button class="lnk w" data-a="demo">Découvrir avec des exemples</button>`;
-  else if (view==="create") h = `${logo}<h1>Créer mon compte</h1><p class="lead">${state.docs.size ? "Tes données sont déjà sur ce téléphone. Crée ton identifiant pour protéger l'appli." : "Ton identifiant et ton mot de passe protègent l'accès à l'appli."}</p>
-    <form class="authcard" data-f="create" novalidate>
-      <div class="field"><label for="aName">Nom complet</label><input id="aName" value="${esc(s.name)}" autocomplete="name" placeholder="Ex. : Frédéric ETSINYO"></div>
-      <div class="field"><label for="aUser">Identifiant</label><input id="aUser" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="Ton e-mail ou un nom d'utilisateur"></div>
-      ${pwField("aPw","Mot de passe (6 caractères min.)","new-password")}${pwField("aPw2","Confirmer le mot de passe","new-password")}
-      ${remember}${err}<button class="btn wide" type="submit">Créer mon compte</button></form>
-    ${state.docs.size ? "" : `<button class="lnk w" data-a="toWelcome">Retour</button>`}`;
-  else if (view==="login") h = `${avatar(s.name||a.user, state.photo, 76)}<h1>Bonjour${s.name ? " " + esc(s.name.split(" ")[0]) : ""}</h1><p class="lead">Connecte-toi pour ouvrir Mes Finances.</p>
-    <form class="authcard" data-f="login" novalidate>
-      <div class="field"><label for="aUser">Identifiant</label><input id="aUser" value="${esc(a.user)}" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
-      ${pwField("aPw","Mot de passe","current-password")}${remember}${err}
-      <button class="btn wide" type="submit">Se connecter</button></form>
-    <button class="lnk w" data-a="toForgot">Mot de passe oublié ?</button>`;
-  else if (view==="connect") h = `${logo}<h1>Retrouver mon compte</h1><p class="lead">Colle l'adresse de ton serveur et ta clé secrète : tes données et ton identifiant seront récupérés.</p>
-    <form class="authcard" data-f="connect" novalidate>
-      <div class="field"><label for="aUrl">Adresse du serveur</label><input id="aUrl" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
-      <div class="field"><label for="aKey">Clé secrète</label><input id="aKey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="mf-…"></div>
-      ${err}<button class="btn wide" type="submit">Récupérer mes données</button></form>
-    <button class="lnk w" data-a="toWelcome">Retour</button>`;
-  else if (view==="forgot") h = cfg ? `${logo}<h1>Nouveau mot de passe</h1><p class="lead">Pour prouver que c'est toi, colle la clé secrète de ton serveur (journal d'exécution d'Apps Script).</p>
-    <form class="authcard" data-f="forgot" novalidate>
-      <div class="field"><label for="aKey">Clé secrète</label><input id="aKey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="mf-…"></div>
-      ${pwField("aPw","Nouveau mot de passe","new-password")}${pwField("aPw2","Confirmer","new-password")}${err}
-      <button class="btn wide" type="submit">Changer le mot de passe</button></form>
-    <button class="lnk w" data-a="toLogin">Retour</button>`
-    : `${logo}<h1>Mot de passe oublié</h1><p class="lead">Ce téléphone n'est pas relié à ton Google Sheets : impossible de vérifier ton identité. Tu peux effacer l'appli sur ce téléphone pour repartir de zéro.</p>
-    <div class="authcard"><p class="small muted" style="margin:0">Attention : toutes les données de ce téléphone seront supprimées.</p>${err}<button class="btn danger wide" data-a="wipe">Effacer les données de ce téléphone</button></div>
-    <button class="lnk w" data-a="toLogin">Retour</button>`;
+  if (view==="login") h = `${me && state.photo ? avatar(s.name||me.email, state.photo, 76) : logo}<h1>Mes Finances</h1><p class="lead">Personnel · Lambano · Berekia Multiservices</p>
+    <form class="authcard" data-f="login" novalidate><h2>Connexion</h2>
+      ${emailField((me && me.email) || last)}${pwField("aPw","Mot de passe","current-password")}${err}
+      ${/confirmée/.test(msg||"") ? `<button class="lnk" type="button" data-a="resend">Renvoyer l'e-mail de confirmation</button>` : ""}
+      <button class="btn wide" type="submit">Se connecter</button>
+      <button class="lnk" type="button" data-a="toForgot">Mot de passe oublié ?</button></form>
+    <div class="authcard" style="gap:8px"><button class="btn soft wide" data-a="toSignup">Créer un compte</button></div>
+    ${me ? "" : `<button class="lnk w" data-a="demo">Découvrir avec des exemples</button>`}`;
+  else if (view==="signup") h = `${logo}<h1>Créer un compte</h1><p class="lead">Avec ton adresse e-mail. Tes données restent privées : personne d'autre n'y a accès.</p>
+    <form class="authcard" data-f="signup" novalidate>
+      <div class="field"><label for="aName">Nom complet</label><input id="aName" autocomplete="name" placeholder="Ex. : Frédéric ETSINYO"></div>
+      ${emailField(last)}${pwField("aPw","Mot de passe (6 caractères min.)","new-password")}${pwField("aPw2","Confirmer le mot de passe","new-password")}${err}
+      <button class="btn wide" type="submit">Créer mon compte</button></form>
+    <button class="lnk w" data-a="toLogin">J'ai déjà un compte</button>`;
+  else if (view==="checkmail") h = `${logo}<h1>Confirme ton adresse</h1><p class="lead">Un e-mail a été envoyé à <b>${esc(extra||"")}</b>. Ouvre le lien qu'il contient sur ce téléphone pour activer ton compte.</p>
+    <div class="authcard">${err}<p class="small muted" style="margin:0">Pense à regarder dans les spams. Si le lien s'ouvre dans un autre navigateur, reviens ici et connecte-toi.</p>
+      <button class="btn wide" data-a="toLogin">J'ai confirmé, me connecter</button><button class="btn soft wide" data-a="resend" data-mail="${esc(extra||"")}">Renvoyer l'e-mail</button></div>`;
+  else if (view==="forgot") h = `${logo}<h1>Mot de passe oublié</h1><p class="lead">Indique ton adresse : tu recevras un lien pour choisir un nouveau mot de passe.</p>
+    <form class="authcard" data-f="forgot" novalidate>${emailField((me && me.email) || last)}${err}${extra ? info(extra) : ""}
+      <button class="btn wide" type="submit">Envoyer le lien</button></form>
+    <button class="lnk w" data-a="toLogin">Retour à la connexion</button>`;
+  else if (view==="newpw") h = `${logo}<h1>Nouveau mot de passe</h1><p class="lead">Choisis ton nouveau mot de passe.</p>
+    <form class="authcard" data-f="newpw" novalidate>${pwField("aPw","Nouveau mot de passe (6 caractères min.)","new-password")}${pwField("aPw2","Confirmer","new-password")}${err}
+      <button class="btn wide" type="submit">Enregistrer</button></form>`;
   root.innerHTML = `<div class="auth" role="dialog" aria-modal="true">${h}</div>`;
-  const f = root.querySelector("input:not([type=checkbox])"); if (f && !f.value) setTimeout(()=>{ try { f.focus({preventScroll:true}); } catch(e){} }, 60);
-  else { const p = root.querySelector("#aPw"); if (p) setTimeout(()=>{ try { p.focus({preventScroll:true}); } catch(e){} }, 60); }
-  root.onclick = e => { const b = e.target.closest("[data-a]"); if (!b) return; const x = b.dataset.a;
-    if (x==="toCreate") authView("create"); else if (x==="toConnect") authView("connect"); else if (x==="toWelcome") authView("welcome");
-    else if (x==="toForgot") authView("forgot"); else if (x==="toLogin") authView("login");
+  const f = [...root.querySelectorAll("input")].find(x => !x.value); if (f) setTimeout(() => { try { f.focus({preventScroll:true}); } catch(e){} }, 60);
+  root.onclick = async e => { const b = e.target.closest("[data-a]"); if (!b) return; const x = b.dataset.a;
+    if (x==="toSignup") authView("signup"); else if (x==="toLogin") authView("login"); else if (x==="toForgot") authView("forgot");
     else if (x==="demo") { state.demo = true; unlock(); }
-    else if (x==="wipe") { if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Appuie encore pour tout effacer"; return; }
-      try { Object.keys(localStorage).filter(k=>k.startsWith("mf")).forEach(k=>localStorage.removeItem(k)); } catch(err){} location.reload(); } };
+    else if (x==="resend") { const mail = b.dataset.mail || (root.querySelector("#aMail")||{}).value || "";
+      if (!SB || !isEmail(mail)) return toast("Indique ton adresse e-mail.");
+      const { error } = await SB.auth.resend({type:"signup", email:mail, options:{emailRedirectTo:APP_URL}});
+      toast(error ? authErr(error) : "E-mail renvoyé"); } };
   const form = root.querySelector("form"); if (form) form.addEventListener("submit", async ev => { ev.preventDefault();
-    const btn = form.querySelector("[type=submit]"), val = id => (root.querySelector("#"+id)||{}).value || "";
+    const btn = form.querySelector("[type=submit]"), val = id => ((root.querySelector("#"+id)||{}).value || "");
     const label = btn.textContent; btn.disabled = true; btn.textContent = "Patiente…";
-    const done = m => { btn.disabled = false; btn.textContent = label; if (m) authView(form.dataset.f, m); };
+    const done = (m, ex) => { btn.disabled = false; btn.textContent = label; if (m || ex) authView(form.dataset.f, m, ex); };
+    if (!SB) return done("Connexion indisponible ici : ouvre l'appli depuis son adresse internet.");
+    if (!navigator.onLine) return done("Il faut une connexion internet pour cette étape.");
     try {
-      if (form.dataset.f==="create") {
-        const name = val("aName").trim(), user = normUser(val("aUser")), pw = val("aPw");
+      const mail = val("aMail").trim().toLowerCase();
+      if (form.dataset.f==="login") {
+        if (!isEmail(mail)) return done("Indique une adresse e-mail valide.");
+        if (!val("aPw")) return done("Indique ton mot de passe.");
+        ls.set("mf5-last-email", mail);
+        const { data, error } = await SB.auth.signInWithPassword({email:mail, password:val("aPw")});
+        if (error) return done(authErr(error));
+        await onSignedIn(data.user);
+      } else if (form.dataset.f==="signup") {
+        const name = val("aName").trim(), pw = val("aPw");
         if (!name) return done("Indique ton nom.");
-        if (user.length < 3) return done("L'identifiant doit faire au moins 3 caractères.");
+        if (!isEmail(mail)) return done("Indique une adresse e-mail valide.");
         if (pw.length < 6) return done("Le mot de passe doit faire au moins 6 caractères.");
         if (pw !== val("aPw2")) return done("Les deux mots de passe ne correspondent pas.");
-        const auth = await makeAuth(user, pw); state.demo = false;
-        if (!(await saveSettings({name, auth}))) return done("Impossible d'enregistrer le compte. Réessaie.");
-        openSession(auth.user, root.querySelector("#aRem").checked); toast("Compte créé. Bienvenue !"); gate();
-      } else if (form.dataset.f==="login") {
-        if (Date.now() < failUntil) return done(`Trop d'essais. Réessaie dans ${Math.ceil((failUntil-Date.now())/1000)} s.`);
-        const a2 = settings().auth;
-        if (normUser(val("aUser")) !== a2.user || await pwHash(val("aPw"), a2.salt, a2.iter) !== a2.hash) {
-          if (++failCount >= 5) { failCount = 0; failUntil = Date.now() + 30000; }
-          return done("Identifiant ou mot de passe incorrect."); }
-        failCount = 0; openSession(a2.user, root.querySelector("#aRem").checked); unlock();
-      } else if (form.dataset.f==="connect") {
-        const m = await connectCore(val("aUrl").trim(), val("aKey").trim()); if (m) return done(m);
-        await sync(); toast("Données récupérées"); gate();
+        ls.set("mf5-last-email", mail);
+        const { data, error } = await SB.auth.signUp({email:mail, password:pw, options:{data:{name, full_name:name}, emailRedirectTo:APP_URL}});
+        if (error) return done(authErr(error));
+        if (data.user && Array.isArray(data.user.identities) && !data.user.identities.length) return done("Un compte existe déjà avec cet e-mail. Connecte-toi.");
+        if (data.session) { await onSignedIn(data.user); toast("Compte créé. Bienvenue !"); }
+        else authView("checkmail", "", mail);
       } else if (form.dataset.f==="forgot") {
-        if (val("aKey").trim() !== cfg.key) return done("Clé secrète incorrecte.");
-        if (val("aPw").length < 6) return done("Le mot de passe doit faire au moins 6 caractères.");
-        if (val("aPw") !== val("aPw2")) return done("Les deux mots de passe ne correspondent pas.");
-        const a3 = settings().auth, auth = await makeAuth(a3 ? a3.user : (cfg.email||"moi"), val("aPw"));
-        await saveSettings({auth}); openSession(auth.user, true); toast("Mot de passe modifié"); unlock();
+        if (!isEmail(mail)) return done("Indique une adresse e-mail valide.");
+        ls.set("mf5-last-email", mail);
+        const { error } = await SB.auth.resetPasswordForEmail(mail, {redirectTo:APP_URL});
+        if (error) return done(authErr(error));
+        done("", "Si un compte existe pour cette adresse, un lien vient d'être envoyé. Ouvre-le sur ce téléphone.");
+      } else if (form.dataset.f==="newpw") {
+        const pw = val("aPw");
+        if (pw.length < 6) return done("Le mot de passe doit faire au moins 6 caractères.");
+        if (pw !== val("aPw2")) return done("Les deux mots de passe ne correspondent pas.");
+        const { data, error } = await SB.auth.updateUser({password:pw});
+        if (error) return done(authErr(error));
+        recovering = false; toast("Mot de passe modifié"); try { history.replaceState(null, "", APP_URL); } catch(e){}
+        await onSignedIn(data.user);
       }
-    } catch(e){ done("Une erreur est survenue : " + (e && e.message || e)); }
+    } catch(e){ done(authErr(e)); }
   });
 }
 
@@ -1520,9 +1611,11 @@ document.addEventListener("click", e => {
     tax: () => { if (id==="new") taxMenu(); else if (realOnly(id)) taxForm(get(id)); else toast("C'est un exemple."); },
     payTax: () => { const t = get(id); if (!realOnly(id)) { toast("C'est un exemple. Ajoute ton propre impôt."); return; } const p = periodsOf(t).find(x=>x.key===v); if (!p) return; const i = taxPeriodInfo(t,p);
       txForm({type:"out", space:"pro", cat:"taxes", amount:i.rest, taxId:t.id, taxPeriod:p.key, note:`${t.name} · ${p.label}`, date:TODAY, method:"Banque", title:"Payer l'impôt", intro:`${esc(t.name)} · ${esc(p.label)} · dû ${money(i.due)}`}); },
-    startCreate: () => { state.demo = false; authView("create"); },
+    startCreate: () => { state.demo = false; closeSheet(); authView("signup"); },
     changePw: changePwForm,
-    logout: () => { closeSession(); state.stack = [{s:"home"}]; closeSheet(); gate(); },
+    logout: () => { const n = pendingCount(); if (n && !el.dataset.armed) { el.dataset.armed = "1"; el.lastChild.textContent = `${n} modif. pas encore envoyée${n>1?"s":""} : appuie encore`; toast("Elles resteront sur ce téléphone et partiront à ta prochaine connexion."); return; } logout(); },
+    relogin: () => authView("login", "Ta session a expiré : reconnecte-toi pour synchroniser."),
+    exportCsv, exportJson,
     editTx: () => { const t = get(id); if (t) txForm({}, t); },
     newDebt: () => debtForm(null, id),
     editDebt: () => { if (realOnly(id)) debtForm(get(id)); else toast("C'est un exemple."); },
@@ -1546,9 +1639,7 @@ document.addEventListener("click", e => {
     loanPay: () => { const l = get(id); if (!realOnly(id)) { toast("C'est un exemple. Ajoute ton propre prêt."); return; } const li = loanInfo(l);
       txForm({type:"out", space:"perso", cat:"pret", amount:Math.round(li.monthly), loanId:l.id, method: l.accountId ? "Banque" : "Espèces", accountId:l.accountId||"", date: li.next.date<=TODAY ? li.next.date : TODAY, note:`Échéance ${li.next.i}/${l.months} · ${l.label}`, title:"Payer l'échéance", intro:`${esc(l.bank)} · échéance du ${esc(dateTxt(li.next.date))}`}); },
     importContacts, contact: () => contactForm(id==="new" ? null : get(id)),
-    connect, syncNow: () => { if (!navigator.onLine) toast("Pas de connexion pour l'instant : la synchro se fera automatiquement au retour du réseau."); else sync(); },
-    hideTip: () => { meta.hideTip = true; persistAll(); render(); },
-    disconnect: () => { if (!el.dataset.armed) { el.dataset.armed = "1"; el.textContent = "Appuie encore pour confirmer"; return; } cfg = null; ls.del(K.cfg); outbox = {}; meta.lastSync = 0; persistAll(); toast("Ce téléphone n'est plus synchronisé"); render(); },
+    syncNow: () => { if (!navigator.onLine) toast("Pas de connexion pour l'instant : la synchro se fera automatiquement au retour du réseau."); else sync(); },
     saveName: async () => { const n = $("#pName").value.trim(); if (await saveSettings({name:n})) toast("Nom enregistré"); }
   };
   if (A[a]) { e.preventDefault(); A[a](); }
@@ -1561,7 +1652,6 @@ document.addEventListener("change", async e => {
   if (t.id==="swAuto") { if (await saveSettings({autoSave:t.checked})) toast(t.checked ? "Épargne automatique activée" : "Épargne automatique désactivée"); else t.checked = !t.checked; }
   if (t.id==="autoPct") { if (await saveSettings({autoSavePct:+t.value})) toast("Pourcentage enregistré"); }
   if (t.id==="remDays") { if (await saveSettings({remindDays:+t.value})) toast("Réglage enregistré"); }
-  if (t.id==="swMail") { const on = t.checked; if (!cfg || !navigator.onLine) { t.checked = !on; toast("Il faut une connexion internet pour régler les rappels par e-mail."); return; } try { await api("reminders", {on}); await saveSettings({remindEmail:on}); toast(on ? "Rappels par e-mail activés (7 h chaque matin)" : "Rappels par e-mail désactivés"); } catch(err){ t.checked = !on; toast("Impossible de régler les rappels. Réessaie."); } }
 });
 
 SAMPLES = makeSamples();
