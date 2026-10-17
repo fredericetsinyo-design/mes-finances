@@ -528,7 +528,7 @@ async function boot(){
     if (ev === "PASSWORD_RECOVERY") { recovering = true; setTimeout(() => authView("newpw"), 0); return; }
     if (ev === "SIGNED_IN" && session && (!me || me.id !== session.user.id || needLogin)) setTimeout(() => onSignedIn(session.user), 0);
   });
-  if (me) { startApp(); sync(); return; }
+  if (me) { startApp(); sync().then(offerLegacy); return; }
   let session = null;
   try { session = (await SB.auth.getSession()).data.session; } catch(e){}
   if (session) onSignedIn(session.user); else if (!state.unlocked) authView("login");
@@ -1055,7 +1055,9 @@ SCREENS.profil = () => {
     <section class="card"><h2>Dîme</h2><button class="btn ghost" data-act="titheSettings">${ic("church")}${s.tithePct} % · base ${titheBaseL(s.titheBase)}</button></section>
     <section class="card"><h2>Mes données</h2>
       <button class="btn ghost" data-act="exportCsv">${ic("sheet")}Exporter mes opérations (Excel)</button>
-      <button class="btn ghost" data-act="exportJson">${ic("down")}Sauvegarde complète (fichier)</button></section></div>`;
+      <button class="btn ghost" data-act="exportJson">${ic("down")}Sauvegarde complète (fichier)</button>
+      ${me && !state.demo ? `<label class="btn ghost" style="cursor:pointer">${ic("up")}Restaurer une sauvegarde<input id="restoreIn" type="file" accept=".json,application/json" hidden></label>` : ""}
+      ${me && !state.demo && (ls.get("mf3-data", []) || []).length && !ls.get("mf5-legacy-done", false) ? `<button class="btn soft" data-act="legacy">${ic("swap")}Récupérer les données de l'ancienne version</button>` : ""}</section></div>`;
 };
 
 /* --- Synchronisation --- */
@@ -1451,6 +1453,24 @@ function exportCsv(){
   downloadFile(`mes-finances-operations-${TODAY}.csv`, "\ufeff" + lines.join("\n"), "text/csv;charset=utf-8");
   toast(`${rows.length} opération${rows.length>1?"s":""} exportée${rows.length>1?"s":""}`);
 }
+function restoreBackup(file){
+  if (demoBlock()) return;
+  const r = new FileReader();
+  r.onerror = () => toast("Ce fichier ne peut pas être lu.");
+  r.onload = async () => {
+    let docs; try { const j = JSON.parse(String(r.result)); docs = Array.isArray(j) ? j : j.docs; if (!Array.isArray(docs)) throw 0; } catch(e){ toast("Ce fichier n'est pas une sauvegarde Mes Finances."); return; }
+    const items = [], counts = {};
+    docs.forEach(x => { const [id, d] = Array.isArray(x) ? x : [x && x.id, x && x.data];
+      if (!id || !d || !d.kind || d.kind === "settings" && state.docs.has("settings")) return;
+      const cur = state.docs.get(id); if (cur && (cur._u||0) >= (d._u||0)) return;
+      const {auth, remindEmail, ...clean} = d; items.push([id, clean]); counts[d.kind] = (counts[d.kind]||0) + 1; });
+    if (!items.length) { toast("Tout est déjà dans ton compte."); return; }
+    if (await store.saveMany(items)) { refreshPhoto(); render();
+      const L = {tx:"opération", contact:"contact", debt:"dette", contract:"contrat", account:"compte", loan:"prêt", budget:"budget", goal:"objectif", saving:"épargne", tax:"impôt", bankmv:"mouvement"};
+      toast(`Restauré : ${Object.entries(counts).map(([k,n]) => `${n} ${L[k]||k}${n>1&&L[k]?"s":""}`).join(", ")}`); }
+  };
+  r.readAsText(file);
+}
 function exportJson(){ downloadFile(`mes-finances-sauvegarde-${TODAY}.json`, JSON.stringify({app:"Mes Finances", date:TODAY, email:me && me.email, docs:[...all()]}, null, 1), "application/json"); toast("Sauvegarde créée"); }
 
 /* --- Profile photo --- */
@@ -1615,7 +1635,7 @@ document.addEventListener("click", e => {
     changePw: changePwForm,
     logout: () => { const n = pendingCount(); if (n && !el.dataset.armed) { el.dataset.armed = "1"; el.lastChild.textContent = `${n} modif. pas encore envoyée${n>1?"s":""} : appuie encore`; toast("Elles resteront sur ce téléphone et partiront à ta prochaine connexion."); return; } logout(); },
     relogin: () => authView("login", "Ta session a expiré : reconnecte-toi pour synchroniser."),
-    exportCsv, exportJson,
+    exportCsv, exportJson, legacy: () => { ls.del("mf5-legacy-done"); offerLegacy(); },
     editTx: () => { const t = get(id); if (t) txForm({}, t); },
     newDebt: () => debtForm(null, id),
     editDebt: () => { if (realOnly(id)) debtForm(get(id)); else toast("C'est un exemple."); },
@@ -1648,6 +1668,7 @@ document.addEventListener("input", e => { if (e.target.id==="q") { state.q = e.t
 document.addEventListener("change", async e => {
   const t = e.target;
   if (t.id==="photoIn" && t.files[0]) setPhoto(t.files[0]);
+  if (t.id==="restoreIn" && t.files[0]) { restoreBackup(t.files[0]); t.value = ""; }
   if (t.id==="swLock") { if (t.checked) setupLock(); else if (await saveSettings({lockHash:""})) toast("Code désactivé"); }
   if (t.id==="swAuto") { if (await saveSettings({autoSave:t.checked})) toast(t.checked ? "Épargne automatique activée" : "Épargne automatique désactivée"); else t.checked = !t.checked; }
   if (t.id==="autoPct") { if (await saveSettings({autoSavePct:+t.value})) toast("Pourcentage enregistré"); }
