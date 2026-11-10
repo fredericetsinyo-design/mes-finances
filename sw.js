@@ -1,5 +1,5 @@
 /* Mes Finances — service worker : l'appli s'ouvre même sans internet. */
-const CACHE = "mes-finances-v6";
+const CACHE = "mes-finances-v7";
 const SHELL = ["./", "./index.html", "./supabase.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
@@ -22,5 +22,23 @@ self.addEventListener("fetch", e => {
       return res;
     }).catch(() => cached);
     return cached || network;
+  }));
+});
+
+/* Notifications de rappel (envoyées par le serveur) */
+self.addEventListener("push", e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch(_) { d = {body: e.data ? e.data.text() : ""}; }
+  e.waitUntil(self.registration.showNotification(d.title || "Mes Finances", {
+    body: d.body || "", tag: d.tag || "mf", renotify: true,
+    icon: "icon-192.png", badge: "icon-192.png", data: {url: d.url || "./"}
+  }));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const target = new URL("./#prets", self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({type: "window", includeUncontrolled: true}).then(list => {
+    for (const c of list) if (c.url.startsWith(self.registration.scope)) { c.postMessage({go: "prets"}); return c.focus(); }
+    return self.clients.openWindow(target);
   }));
 });

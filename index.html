@@ -670,7 +670,11 @@ function reminders(){
   list("debt").forEach(d => { const di = debtInfo(d); if (di.rest>0 && d.dueDate && d.dueDate <= lim) out.push({icon: d.direction==="owe"?"up":"down", tone: d.dueDate<TODAY?"bad":"warn",
     title: d.direction==="owe" ? `Rembourser ${contactName(d.contactId)}` : `${contactName(d.contactId)} doit te rembourser`,
     sub: `${money(di.rest)} · ${d.dueDate<TODAY?"en retard depuis le":"échéance le"} ${dateTxt(d.dueDate,{day:"numeric",month:"short"})}`, go:{s:"debt",id:d.id}, date:d.dueDate}); });
-  list("loan").forEach(l => { const li = loanInfo(l); if (li.next && li.next.date <= lim) out.push({icon:"bank", tone: li.next.date<TODAY?"bad":"warn", title:`Échéance ${li.next.i}/${l.months} · ${l.label}`, sub:`${money(li.monthly)} · ${li.next.date<TODAY?"en retard depuis le":"le"} ${dateTxt(li.next.date,{day:"numeric",month:"short"})}`, go:{s:"loan",id:l.id}, date:li.next.date}); });
+  list("loan").forEach(l => { const li = loanInfo(l), cur = ymOf(NOW), due = li.rows.filter(r => r.date.slice(0,7) <= cur).length, late = due - li.k;
+    if (late <= 0 || (NOW.getDate() < 20 && late < 2)) return;
+    out.push({icon:"bank", tone: late >= 2 ? "bad" : "warn", title:`Prêt · ${l.label}`,
+      sub: late === 1 ? `Échéance de ${monthName(cur,{month:"long"})} : ${money(li.monthly)} à payer` : `${late} échéances à payer : ${money(li.monthly*late)}`,
+      go:{s:"loan",id:l.id}, date: cur + "-20"}); });
   const pm = shiftYM(ymOf(NOW),-1), tc = titheCalc(pm);
   if (tc.rest>0) out.push({icon:"church", tone:"gold", title:`Dîme de ${monthName(pm,{month:"long"})}`, sub:`${money(tc.rest)} à donner (${settings().tithePct} % du bénéfice)`, go:{s:"dime"}, date:pm+"-28"});
   taxOpen().forEach(i => { if (i.dueDate <= lim) out.push({icon:"receipt", tone: i.dueDate<TODAY?"bad":"warn", title:`${i.t.name} · ${i.label}`, sub:`${money(i.rest)} · ${i.dueDate<TODAY?"en retard depuis le":"à payer avant le"} ${dateTxt(i.dueDate,{day:"numeric",month:"short"})}`, go:{s:"impots"}, date:i.dueDate}); });
@@ -1051,6 +1055,9 @@ SCREENS.profil = () => {
     <section class="card"><h2>Sécurité</h2>
       <div class="toggle"><div><b>Code rapide</b><span>${s.lockHash?"Activé : un code à 4 chiffres est demandé à chaque ouverture":"Demander un code à 4 chiffres à chaque ouverture"}</span></div><input type="checkbox" class="sw" id="swLock" ${s.lockHash?"checked":""} aria-label="Code rapide"></div></section>
     <section class="card"><h2>Rappels</h2>
+      ${me && !state.demo ? `<div class="toggle"><div><b>Notifications de prêt</b><span>Chaque matin à 8 h à partir du 20 du mois, tant que l'échéance n'est pas payée</span></div><input type="checkbox" class="sw" id="swPush" ${pushOn() ? "checked" : ""} aria-label="Notifications de prêt"></div>
+      ${pushOn() ? `<button class="btn ghost" data-act="testPush">${ic("bell")}Envoyer une notification d'essai</button>` : ""}
+      <p class="small muted" style="margin:0">Pour que la relance s'arrête, enregistre le paiement avec le bouton « Payer l'échéance » du prêt.${isIOS() ? " Sur iPhone, ouvre l'appli depuis son icône sur l'écran d'accueil pour activer les notifications." : ""}</p>` : ""}
       <div class="field"><label for="remDays">Prévenir combien de jours avant ?</label><select id="remDays">${[1,2,3,5,7].map(n=>`<option value="${n}" ${s.remindDays==n?"selected":""}>${n} jour${n>1?"s":""}</option>`).join("")}</select></div></section>
     <section class="card"><h2>Dîme</h2><button class="btn ghost" data-act="titheSettings">${ic("church")}${s.tithePct} % · base ${titheBaseL(s.titheBase)}</button></section>
     <section class="card"><h2>Mes données</h2>
@@ -1503,6 +1510,45 @@ function setupLock(){ let first = ""; keypad("Choisis un code à 4 chiffres", as
   if (c !== first) { first = ""; return "Les codes ne correspondent pas. Recommence."; }
   $("#lockRoot").innerHTML = ""; $("#lockRoot").onclick = null; if (await saveSettings({lockHash: await sha(c)})) toast("Code activé"); return ""; }); }
 
+/* ================= Notifications push (rappels de prêt) ================= */
+const VAPID_PUBLIC = "BA6t4FWNl3JfCWl-YmCdlNfK9u3Z0_SFBQFYM60lJZheh9uHkrro5ATsd3zq86BL3HKq6fk5RTyQUkgzQTXmmyg";
+const isIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent);
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const pushOn = () => !!(me && ls.get("mf5-push-" + me.id, false) && pushSupported() && Notification.permission === "granted");
+const b64u = s => { const p = "=".repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, c => c.charCodeAt(0)); };
+async function enablePush(){
+  if (!SB || !me) return false;
+  if (!navigator.onLine) { toast("Il faut une connexion internet pour activer les notifications."); return false; }
+  if (!pushSupported()) { toast(isIOS() ? "Sur iPhone, installe l'appli sur l'écran d'accueil (Partager → Sur l'écran d'accueil), puis ouvre-la depuis son icône." : "Ce navigateur ne gère pas les notifications. Utilise Chrome."); return false; }
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") { toast("Notifications refusées. Autorise-les pour cette appli dans les réglages du téléphone."); return false; }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64u(VAPID_PUBLIC)});
+    const j = sub.toJSON();
+    const { error } = await SB.from("mf_push_subs").upsert({endpoint:j.endpoint, user_id:me.id, p256dh:j.keys.p256dh, auth:j.keys.auth, device:navigator.userAgent.slice(0,160)});
+    if (error) throw error;
+    ls.set("mf5-push-" + me.id, true); toast("Notifications activées"); return true;
+  } catch(e){ toast("Impossible d'activer les notifications : " + (e && e.message || e)); return false; }
+}
+async function disablePush(quiet){
+  try { const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+    if (sub && SB) await SB.from("mf_push_subs").delete().eq("endpoint", sub.endpoint); } catch(e){}
+  if (me) ls.del("mf5-push-" + me.id);
+  if (!quiet) toast("Notifications désactivées");
+}
+async function testPush(){
+  try {
+    const { data:{ session } } = await SB.auth.getSession(); if (!session) { toast("Reconnecte-toi d'abord."); return; }
+    const r = await fetch(SB_URL + "/functions/v1/mf-rappels", {method:"POST", headers:{"Content-Type":"application/json", apikey:SB_KEY, Authorization:"Bearer " + session.access_token}, body:JSON.stringify({mode:"test"})});
+    const j = await r.json();
+    toast(j.ok && j.devices ? (j.results.includes("ok") ? "Notification envoyée : elle arrive dans quelques secondes." : "L'envoi a échoué. Désactive puis réactive les notifications.") : "Aucun appareil abonné. Réactive les notifications.");
+  } catch(e){ toast("Pas de connexion pour l'instant."); }
+}
+let pendingGo = /#prets$/.test(location.hash) ? "prets" : "";
+if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", e => { if (e.data && e.data.go === "prets" && state.unlocked) { state.stack = [{s:"plus"},{s:"prets"}]; render(); } });
+
 /* ================= Connexion (Supabase : e-mail + mot de passe) ================= */
 const authErr = e => { const m = String(e && (e.message || e.error_description || e) || "");
   if (/Invalid login credentials/i.test(m)) return "E-mail ou mot de passe incorrect.";
@@ -1515,8 +1561,11 @@ const authErr = e => { const m = String(e && (e.message || e.error_description |
   if (/Failed to fetch|NetworkError|network|Load failed/i.test(m)) return "Pas de connexion internet. Réessaie quand tu es en ligne.";
   return m || "Une erreur est survenue."; };
 const isEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
-function unlock(){ state.unlocked = true; $("#lockRoot").innerHTML = ""; $("#lockRoot").onclick = null; render(); }
+function unlock(){ state.unlocked = true; $("#lockRoot").innerHTML = ""; $("#lockRoot").onclick = null;
+  if (pendingGo && me) { state.stack = [{s:"plus"},{s:pendingGo}]; pendingGo = ""; try { history.replaceState(null, "", APP_URL); } catch(e){} }
+  render(); }
 async function logout(){
+  if (pushOn()) await disablePush(true);
   if (SB) { try { await SB.auth.signOut({scope:"local"}); } catch(e){} }
   ls.del("mf5-last"); me = null; needLogin = false; syncErr = ""; outbox = {}; meta = {}; state.docs = new Map(); state.photo = ""; state.email = "";
   state.stack = [{s:"home"}]; closeSheet(); authView("login");
@@ -1635,7 +1684,7 @@ document.addEventListener("click", e => {
     changePw: changePwForm,
     logout: () => { const n = pendingCount(); if (n && !el.dataset.armed) { el.dataset.armed = "1"; el.lastChild.textContent = `${n} modif. pas encore envoyée${n>1?"s":""} : appuie encore`; toast("Elles resteront sur ce téléphone et partiront à ta prochaine connexion."); return; } logout(); },
     relogin: () => authView("login", "Ta session a expiré : reconnecte-toi pour synchroniser."),
-    exportCsv, exportJson, legacy: () => { ls.del("mf5-legacy-done"); offerLegacy(); },
+    exportCsv, exportJson, testPush, legacy: () => { ls.del("mf5-legacy-done"); offerLegacy(); },
     editTx: () => { const t = get(id); if (t) txForm({}, t); },
     newDebt: () => debtForm(null, id),
     editDebt: () => { if (realOnly(id)) debtForm(get(id)); else toast("C'est un exemple."); },
@@ -1672,6 +1721,7 @@ document.addEventListener("change", async e => {
   if (t.id==="swLock") { if (t.checked) setupLock(); else if (await saveSettings({lockHash:""})) toast("Code désactivé"); }
   if (t.id==="swAuto") { if (await saveSettings({autoSave:t.checked})) toast(t.checked ? "Épargne automatique activée" : "Épargne automatique désactivée"); else t.checked = !t.checked; }
   if (t.id==="autoPct") { if (await saveSettings({autoSavePct:+t.value})) toast("Pourcentage enregistré"); }
+  if (t.id==="swPush") { const ok = t.checked ? await enablePush() : (await disablePush(), true); if (!ok) t.checked = false; render(); }
   if (t.id==="remDays") { if (await saveSettings({remindDays:+t.value})) toast("Réglage enregistré"); }
 });
 
